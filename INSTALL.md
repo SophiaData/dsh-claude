@@ -1,6 +1,6 @@
 # Installation and removal runbook
 
-Current guidance: 2026-09-14, plugin 0.1.51, development graph DSH 0.2.1-rc.5.
+Current guidance: 2026-11-02, plugin 0.2.0-sophiadata.0, development graph DSH 0.2.1-rc.5.
 
 ## 1. Identify the running installation
 

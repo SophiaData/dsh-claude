@@ -12,7 +12,7 @@ Claude Code remains responsible for its agent loop, tools, `CLAUDE.md`, Skills, 
 
 ### Requirements
 
-- DeepSeek Harness Desktop with compatible public plugin APIs. This package is currently developed against the DSH `0.2.1-rc.5` package line (DSH Desktop 2.0.15) and requires it: 0.1.7 replaced directory-scanned presets with declared ones and renamed the shared icons. A Host still on `0.1.5` must pin `@sophiadata/dsh-claude@0.1.57`; plugin 0.1.37 and later import symbols that do not exist on `0.1.1-rc.2`, so a Host on that line must pin `@sophiadata/dsh-claude@0.1.36`.
+- DeepSeek Harness Desktop with compatible public plugin APIs. This package is currently developed against the DSH `0.2.1-rc.5` package line (DSH Desktop 2.0.15) and requires it: 0.1.7 replaced directory-scanned presets with declared ones and renamed the shared icons. A Host still on `0.1.5` must pin the legacy package name `@norman-else/dsh-claude@0.1.57`; plugin 0.1.37 and later import symbols that do not exist on `0.1.1-rc.2`, so a Host on that line must pin `@norman-else/dsh-claude@0.1.36`. Those legacy pins install from the upstream `@norman-else` scope; this fork publishes under `@sophiadata` and targets the `0.2.1-rc.5` line only.
 - A local Claude Code installation that is already authenticated.
 - Node.js 20 or later when installing from a source checkout.
 
@@ -31,7 +31,7 @@ Wait for the profile rebuild to finish, then quit DSH Desktop completely and reo
 ### Install from source
 
 ```sh
-git clone https://github.com/Norman-else/dsh-claude.git
+git clone https://github.com/SophiaData/dsh-claude.git
 cd dsh-claude
 pnpm install
 pnpm check
@@ -136,7 +136,7 @@ Refactors, dependency bumps, test-only changes, and documentation edits are not 
 An issue always comes first. Pull requests that arrive without one are closed unreviewed, regardless of the quality of the code.
 
 1. **Search existing issues.** If your problem or idea is already filed, comment there instead of opening a duplicate.
-2. **Open an issue** at https://github.com/Norman-else/dsh-claude/issues/new/choose and pick the **Feature** or **Fix** form. Choosing the form is how you declare the type: it sets the `[feature]` / `[fix]` title prefix and the matching label for you. Every field listed in §4.3 is required by the form, so an issue that does not explain why it is needed or in what environment it happens cannot be submitted. Blank issues are disabled — if you genuinely cannot tell which type applies, use the "Not sure whether it is a feature or a fix" link on that page and let the maintainer classify it rather than guessing a type to get past the form.
+2. **Open an issue** at https://github.com/SophiaData/dsh-claude/issues/new/choose and pick the **Feature** or **Fix** form. Choosing the form is how you declare the type: it sets the `[feature]` / `[fix]` title prefix and the matching label for you. Every field listed in §4.3 is required by the form, so an issue that does not explain why it is needed or in what environment it happens cannot be submitted. Blank issues are disabled — if you genuinely cannot tell which type applies, use the "Not sure whether it is a feature or a fix" link on that page and let the maintainer classify it rather than guessing a type to get past the form.
 3. **Wait for the issue to be accepted.** The maintainer confirms the type, the scope, and whether the change belongs in this plugin at all — several things that look like plugin bugs are DSH Host or Claude Code CLI behavior. Do not start implementation before this. Work done on a rejected issue cannot be merged.
 4. **Branch from `master`** using `feature/<issue-number>-<short-slug>` or `fix/<issue-number>-<short-slug>`.
 5. **Implement and verify** against the rules in §4.4.
