@@ -12,7 +12,7 @@ Claude Code remains responsible for its agent loop, tools, `CLAUDE.md`, Skills, 
 
 ### Requirements
 
-- DeepSeek Harness Desktop with compatible public plugin APIs. This package is currently developed against the DSH `0.1.7-rc.2` package line (DSH Desktop 2.0.15) and requires it: 0.1.7 replaced directory-scanned presets with declared ones and renamed the shared icons. A Host still on `0.1.5` must pin `@norman-else/dsh-claude@0.1.57`; plugin 0.1.37 and later import symbols that do not exist on `0.1.1-rc.2`, so a Host on that line must pin `@norman-else/dsh-claude@0.1.36`.
+- DeepSeek Harness Desktop with compatible public plugin APIs. This package is currently developed against the DSH `0.2.1-rc.5` package line (DSH Desktop 2.0.15) and requires it: 0.1.7 replaced directory-scanned presets with declared ones and renamed the shared icons. A Host still on `0.1.5` must pin `@sophiadata/dsh-claude@0.1.57`; plugin 0.1.37 and later import symbols that do not exist on `0.1.1-rc.2`, so a Host on that line must pin `@sophiadata/dsh-claude@0.1.36`.
 - A local Claude Code installation that is already authenticated.
 - Node.js 20 or later when installing from a source checkout.
 
@@ -23,7 +23,7 @@ The plugin never asks for or stores Claude credentials. Authenticate through the
 Add the published package to the profile used by your running DSH instance. The commands below use `desktop`; replace it with `web` only for an existing Web profile. Use the DSH CLI supplied by that installation:
 
 ```sh
-dsh plugin --profile desktop add @norman-else/dsh-claude
+dsh plugin --profile desktop add @sophiadata/dsh-claude
 ```
 
 Wait for the profile rebuild to finish, then quit DSH Desktop completely and reopen it. Create a new conversation and select **Claude** from the Agent Preset picker.
@@ -56,7 +56,7 @@ dsh plugin --profile desktop add "link:$(pwd)"
 The Claude preset is declared by the package's bundle patch, so removing the package removes it:
 
 ```sh
-dsh plugin --profile desktop remove @norman-else/dsh-claude
+dsh plugin --profile desktop remove @sophiadata/dsh-claude
 ```
 
 Plugin 0.1.57 and earlier also copied a compatibility preset to `$DSH_HOME/.agent-presets/claude`. Host 0.1.7 no longer reads that directory; remove the leftover copy with:

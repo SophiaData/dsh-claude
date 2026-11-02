@@ -11,7 +11,11 @@ export const MANAGED_PRESET_FILES = ['agent.cordis.yml', 'preset.yml'] as const
  * it through the active profile package factory, so the preset route and client
  * module share one Loader source. An absolute built entry would register a
  * second source and make the Desktop renderer reject the plugin graph. */
-const PRESET_ROUTE_PACKAGE_SPECIFIER = '@norman-else/dsh-claude/preset-route'
+const PRESET_ROUTE_PACKAGE_SPECIFIER = '@sophiadata/dsh-claude/preset-route'
+/** Upstream npm route kept so older managed presets can still be detected. */
+const LEGACY_PRESET_ROUTE_PACKAGE_SPECIFIERS = [
+  '@norman-else/dsh-claude/preset-route',
+] as const
 
 export class ManagedPresetConflictError extends Error {
   readonly path: string
@@ -52,7 +56,13 @@ async function managedContents(paths: ManagedPresetPaths): Promise<ManagedConten
   return await Promise.all(MANAGED_PRESET_FILES.map(async (file): Promise<ManagedContent> => {
     const source = await readFile(join(paths.sourceDir, file), 'utf8')
     const nameRow = `name: '${PRESET_ROUTE_PACKAGE_SPECIFIER}'`
-    const legacyNameRow = `name: ${PRESET_ROUTE_PACKAGE_SPECIFIER}`
+    const legacyNameRows = [
+      `name: ${PRESET_ROUTE_PACKAGE_SPECIFIER}`,
+      ...LEGACY_PRESET_ROUTE_PACKAGE_SPECIFIERS.flatMap(specifier => [
+        `name: '${specifier}'`,
+        `name: ${specifier}`,
+      ]),
+    ]
     if (file !== 'agent.cordis.yml' || !source.includes(nameRow)) {
       return { file, content: source, legacy: [], isLegacy: () => false }
     }
@@ -60,14 +70,14 @@ async function managedContents(paths: ManagedPresetPaths): Promise<ManagedConten
       file,
       content: source,
       legacy: [],
-      // Earlier installers wrote either an unquoted specifier or an absolute
-      // built-module path. Both are installer-owned and safe to converge to the
-      // single profile package source used by Desktop 2.0.4.
+      // Earlier installers wrote either an unquoted specifier, an upstream npm
+      // package name, or an absolute built-module path. All are installer-owned
+      // and safe to converge to the single profile package source.
       // Older installers wrote the route as an absolute path; on Windows that
       // path carries backslashes, so compare with separators normalized.
       isLegacy: current =>
         current.includes('id: claude-code-route')
-        && (current.includes(legacyNameRow)
+        && (legacyNameRows.some(row => current.includes(row))
           || current.replaceAll('\\', '/').includes('lib/preset-route.mjs')),
     }
   }))

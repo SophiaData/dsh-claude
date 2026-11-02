@@ -12,7 +12,7 @@ describe('published package contract', () => {
     const patch = await readFile(join(root, 'cordis.patch.yml'), 'utf8')
     expect(patch).toContain("name: '@deepseek-ai/dsh-agent-preset'")
     expect(patch).toMatch(/config:\s+id: claude\s+name: Claude/u)
-    expect(patch).toContain("name: '@norman-else/dsh-claude/preset-route'")
+    expect(patch).toContain("name: '@sophiadata/dsh-claude/preset-route'")
     expect(patch).toContain('claudeCommands: true')
     // The pre-0.1.7 directory root patched a Host entry that no longer exists.
     expect(patch).not.toContain('id: agent-presets')
@@ -51,20 +51,21 @@ describe('published package contract', () => {
     const dshPeers = Object.entries(packageJson.peerDependencies).filter(([name]) => name.startsWith('@deepseek-ai/dsh-'))
     expect(dshPeers.length).toBeGreaterThan(0)
     for (const [name, range] of dshPeers) {
-      expect(range, name).toBe('>=0.1.7-rc.2')
+      expect(range, name).toBe('>=0.2.1-rc.5')
     }
-    expect(packageJson.peerDependencies['@deepseek-ai/dsh-agent-preset-registry']).toBe('>=0.1.7-rc.2')
+    expect(packageJson.peerDependencies['@deepseek-ai/dsh-agent-preset-registry']).toBe('>=0.2.1-rc.5')
     expect(dshDevelopmentVersions.length).toBeGreaterThan(0)
-    // Desktop 2.0.15 uses 0.1.7-rc.2, and every development package is on it.
-    expect(new Set(dshDevelopmentVersions)).toEqual(new Set(['0.1.7-rc.2']))
-    expect(workspace).toContain("'@deepseek-ai/dsh-*': 0.1.7-rc.2")
+    // Official Desktop Host packages are on 0.2.1-rc.5; dsh-invariants has no
+    // 0.2.1-rc.5 publish yet and stays on 0.2.0-rc.2 for the development graph.
+    expect(new Set(dshDevelopmentVersions)).toEqual(new Set(['0.2.1-rc.5', '0.2.0-rc.2']))
+    expect(workspace).toContain("'@deepseek-ai/dsh-*': 0.2.1-rc.5")
     expect(host).toContain("'attachments'")
     expect(host).toContain('ctx.attachments')
   })
 
   it('documents the DSH package line the plugin is actually built on', async () => {
     const readme = await readFile(join(root, 'README.md'), 'utf8')
-    expect(readme).toContain('developed against the DSH `0.1.7-rc.2` package line')
+    expect(readme).toContain('developed against the DSH `0.2.1-rc.5` package line')
     expect(readme).not.toContain('developed against the DSH `0.1.5-rc.2` package line')
     expect(readme).toContain('0.1.36')
     expect(readme).toContain('0.1.57')
