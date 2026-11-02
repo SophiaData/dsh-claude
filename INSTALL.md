@@ -14,9 +14,26 @@ If `dsh` is not on PATH, use that installation's CLI entry point instead.
 
 ## 2. Install from the GitHub release
 
+The package ships as a prebuilt tarball attached to a GitHub release. Download
+that asset, then add it to the profile:
+
+```sh
+gh release download v0.2.0-sophiadata.0 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
+```
+
+The asset URL works the same way:
+
 ```sh
 dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.0/sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
 ```
+
+Use the `.tgz` in the release's **Assets**, not the "Source code (tar.gz)"
+archive. The source archive carries no built `lib/`, so pnpm treats it as a
+git-hosted dependency and tries to run this package's `prepack` build, refusing
+with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` until the profile allowlists build
+scripts. If that error appears, the wrong archive was installed: remove the
+dependency and reinstall from the asset.
 
 Wait for the profile operation to finish, then quit Desktop completely and
 reopen it. Select **Claude** in a new session. The package's bundle patch
@@ -24,7 +41,7 @@ declares the preset (Desktop Host 0.2.1-rc.5 or later); its route uses the
 active profile package source.
 
 The fork is not published to npm, so `dsh plugin add @sophiadata/dsh-claude`
-does not resolve. Swap the URL for a newer release or install from a source
+does not resolve. Swap the asset for a newer release or install from a source
 checkout instead.
 
 ## 3. Install from a source checkout
