@@ -25,15 +25,24 @@ The plugin never asks for or stores Claude credentials. Authenticate through the
 
 ### Install from the GitHub release
 
-Download the release tarball and add it to the profile used by your running DSH instance. The commands below use `desktop`; replace it with `web` only for an existing Web profile. Use the DSH CLI supplied by that installation:
+The package ships as a prebuilt tarball attached to a GitHub release. Download that asset, then add it to the profile used by your running DSH instance. The commands below use `desktop`; replace it with `web` only for an existing Web profile. Use the DSH CLI supplied by that installation:
+
+```sh
+gh release download v0.2.0-sophiadata.0 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
+```
+
+The asset URL works the same way:
 
 ```sh
 dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.0/sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
 ```
 
+Use the `.tgz` in the release's **Assets**, not the "Source code (tar.gz)" archive. The source archive carries no built `lib/`, so pnpm treats it as a git-hosted dependency and tries to run this package's `prepack` build, refusing with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` until the profile allowlists build scripts.
+
 Wait for the profile rebuild to finish, then quit DSH Desktop completely and reopen it. Create a new conversation and select **Claude** from the Agent Preset picker.
 
-This fork is not published to npm, so `dsh plugin add @sophiadata/dsh-claude` does not resolve; install from the release tarball or from a source checkout.
+This fork is not published to npm, so `dsh plugin add @sophiadata/dsh-claude` does not resolve; install from the release asset or from a source checkout.
 
 ### Install from source
 
