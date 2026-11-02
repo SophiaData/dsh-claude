@@ -9,7 +9,7 @@ import { CLAUDE_UPDATE_CHECK_PATH, CLAUDE_UPDATE_PATH } from './constants.ts'
 import { redactText } from './events.ts'
 import { registerPluginRoute, type PluginMethod } from './http.ts'
 
-export const PLUGIN_PACKAGE_NAME = '@sophiadata/dsh-claude'
+export const PLUGIN_PACKAGE_NAME = '@sophiadata-ai/dsh-claude'
 /** Upstream npm name kept for status probes against already-published releases. */
 const UPSTREAM_PLUGIN_PACKAGE_NAME = '@norman-else/dsh-claude'
 const MAX_MANIFEST_BYTES = 256 * 1024

@@ -11,7 +11,7 @@ export const MANAGED_PRESET_FILES = ['agent.cordis.yml', 'preset.yml'] as const
  * it through the active profile package factory, so the preset route and client
  * module share one Loader source. An absolute built entry would register a
  * second source and make the Desktop renderer reject the plugin graph. */
-const PRESET_ROUTE_PACKAGE_SPECIFIER = '@sophiadata/dsh-claude/preset-route'
+const PRESET_ROUTE_PACKAGE_SPECIFIER = '@sophiadata-ai/dsh-claude/preset-route'
 /** Upstream npm route kept so older managed presets can still be detected. */
 const LEGACY_PRESET_ROUTE_PACKAGE_SPECIFIERS = [
   '@norman-else/dsh-claude/preset-route',

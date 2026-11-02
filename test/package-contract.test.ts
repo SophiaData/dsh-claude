@@ -12,7 +12,7 @@ describe('published package contract', () => {
     const patch = await readFile(join(root, 'cordis.patch.yml'), 'utf8')
     expect(patch).toContain("name: '@deepseek-ai/dsh-agent-preset'")
     expect(patch).toMatch(/config:\s+id: claude\s+name: Claude/u)
-    expect(patch).toContain("name: '@sophiadata/dsh-claude/preset-route'")
+    expect(patch).toContain("name: '@sophiadata-ai/dsh-claude/preset-route'")
     expect(patch).toContain('claudeCommands: true')
     // The pre-0.1.7 directory root patched a Host entry that no longer exists.
     expect(patch).not.toContain('id: agent-presets')

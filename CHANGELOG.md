@@ -6,7 +6,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 This repository is the SophiaData fork of
 [Norman-else/dsh-claude](https://github.com/Norman-else/dsh-claude), published
-as `@sophiadata/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
+as `@sophiadata-ai/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
 
 ## [Unreleased]
 
@@ -16,7 +16,7 @@ First release of the fork, adapted to the DSH `0.2.1-rc.5` package line.
 
 ### Added
 
-- The `@sophiadata/dsh-claude` publish line: the bundle patch's declared
+- The `@sophiadata-ai/dsh-claude` publish line: the bundle patch's declared
   preset, the preset route, the client ModuleLoader id, and update probing all
   name the new package.
 - Windows Claude Code discovery. `claude.exe` is resolved beside PATH entries

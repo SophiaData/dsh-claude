@@ -12,20 +12,30 @@ to compensate for a command aimed at the wrong one. No port is assumed here.
 Examples below use `desktop`; substitute the actual profile throughout.
 If `dsh` is not on PATH, use that installation's CLI entry point instead.
 
-## 2. Install from the GitHub release
+## 2. Install from npm
 
-The package ships as a prebuilt tarball attached to a GitHub release. Download
-that asset, then add it to the profile:
+```sh
+dsh plugin --profile desktop add @sophiadata-ai/dsh-claude
+```
+
+Wait for the profile operation to finish, then quit Desktop completely and
+reopen it. Select **Claude** in a new session. The package's bundle patch
+declares the preset (Desktop Host 0.2.1-rc.5 or later); its route uses the
+active profile package source.
+
+## 3. Install from the GitHub release (no npm account needed)
+
+Each release also carries the same build as a prebuilt tarball:
 
 ```sh
 gh release download v0.2.0-sophiadata.0 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.0-sophiadata.0.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.0/sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.0/sophiadata-ai-dsh-claude-0.2.0-sophiadata.0.tgz
 ```
 
 Use the `.tgz` in the release's **Assets**, not the "Source code (tar.gz)"
@@ -35,16 +45,7 @@ with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` until the profile allowlists build
 scripts. If that error appears, the wrong archive was installed: remove the
 dependency and reinstall from the asset.
 
-Wait for the profile operation to finish, then quit Desktop completely and
-reopen it. Select **Claude** in a new session. The package's bundle patch
-declares the preset (Desktop Host 0.2.1-rc.5 or later); its route uses the
-active profile package source.
-
-The fork is not published to npm, so `dsh plugin add @sophiadata/dsh-claude`
-does not resolve. Swap the asset for a newer release or install from a source
-checkout instead.
-
-## 3. Install from a source checkout
+## 4. Install from a source checkout
 
 Requires Node.js 20 or later and pnpm. From the checkout:
 
@@ -74,7 +75,7 @@ Or from a POSIX shell:
 dsh plugin --profile desktop add "link:$(pwd)"
 ```
 
-## 4. Check the local Claude CLI
+## 5. Check the local Claude CLI
 
 Claude Code owns authentication. Use its existing login or supported settings
 configuration; never request, copy, print, or store credentials in this plugin.
@@ -96,7 +97,7 @@ Main turns, session titles, and branch summaries load `user`, `project`, and
 `local` settings. Summary calls also inherit behavior settings and use their
 own working directory (`process.cwd()`), not a borrowed session process.
 
-## 5. Smoke test after a full Desktop restart
+## 6. Smoke test after a full Desktop restart
 
 1. Confirm **Claude** appears in the new-session preset picker.
 2. Verify an existing native preset still works.
@@ -119,12 +120,12 @@ On the current Windows Desktop, Host logs are under
 Record what was actually exercised. A source audit or green unit tests do not
 establish successful real authentication, approval, streaming, or resume.
 
-## 6. Remove the plugin
+## 7. Remove the plugin
 
 The bundle patch declares the preset, so removing the package removes it:
 
 ```sh
-dsh plugin --profile desktop remove @sophiadata/dsh-claude
+dsh plugin --profile desktop remove @sophiadata-ai/dsh-claude
 ```
 
 Plugin 0.1.57 and earlier also wrote a compatibility copy to
