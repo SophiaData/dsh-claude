@@ -6,7 +6,7 @@ import type {} from '@deepseek-ai/dsh-jobs'
 import { CLAUDE_CODE_PROVIDER } from './constants.ts'
 import { CLAUDE_COMMANDS_SERVICE } from './command-bridge.ts'
 import { claudePresenterDefinitions } from './presenters.ts'
-import { canonicalClaudeModelId } from './model-catalog.ts'
+import { canonicalClaudeModelId, isForeignClaudeModelId } from './model-catalog.ts'
 
 export const name = 'claude-code-preset-route'
 export const inject = ['tools', 'commands']
@@ -21,10 +21,16 @@ export function apply(ctx: Context, config: Config = {}): void {
     // The returned model is what the Host writes into this request's header,
     // and that header is the session's persisted selection from then on: write
     // the selector's own id for it, never a spelling no catalog row carries.
+    const selected = config.model ?? upstream.model ?? 'default'
+    // A provider-qualified model (`dsh-fe/deepseek-v4-flash`) was picked
+    // outside this preset; the CLI rejects it with unrecognized_model, so the
+    // header must never persist it. Bare unknown ids stay: they are plausible
+    // CLI spellings the lineup has not learned yet.
+    const model = isForeignClaudeModelId(selected) ? 'default' : canonicalClaudeModelId(selected)
     return {
       ...upstream,
       provider: CLAUDE_CODE_PROVIDER,
-      model: canonicalClaudeModelId(config.model ?? upstream.model ?? 'default'),
+      model,
     }
   })
   // Expose the effective Host command names for collision-safe projection.
