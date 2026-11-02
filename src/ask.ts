@@ -1,5 +1,6 @@
 import { StringDecoder } from 'node:string_decoder'
 import type { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
+import { isForeignClaudeModelId } from './model-catalog.ts'
 
 const MAX_SELECTION_CHARS = 8_000
 const MAX_CONTEXT_CHARS = 16_000
@@ -64,12 +65,18 @@ export function effortFor(thinkingMode: string | undefined): string | undefined 
 
 export function askArguments(preferences: AskPreferences): readonly string[] {
   const effort = effortFor(preferences.thinkingMode)
+  // `default` and a model from another DSH provider send no `--model` at all:
+  // the CLI rejects a `provider/model` id with `unrecognized_model`, and its
+  // own default is the only safe answer for one this preset cannot name.
+  const model = preferences.model === undefined || preferences.model === 'default' || isForeignClaudeModelId(preferences.model)
+    ? undefined
+    : preferences.model
   return [
     '-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     // No MCP servers: a follow-up question never needs them and connecting
     // them roughly doubles cold start.
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
-    ...(preferences.model === undefined || preferences.model === 'default' ? [] : ['--model', preferences.model]),
+    ...(model === undefined ? [] : ['--model', model]),
     ...(effort === undefined ? [] : ['--effort', effort]),
     // Read-only inspection only; both flags are variadic, so they stay last
     // and the prompt travels over stdin.

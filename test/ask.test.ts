@@ -38,6 +38,10 @@ describe('ask prompt and CLI arguments', () => {
     ])
     expect(askArguments({ model: 'default', thinkingMode: 'off' })).not.toContain('--model')
     expect(askArguments({ model: 'claude-fable-5', thinkingMode: 'ultracode' })).toEqual(expect.arrayContaining(['--model', 'claude-fable-5', '--effort', 'max']))
+    // A session that persisted another provider's model must not hand it to
+    // this one-shot CLI: it answers on the CLI's own default instead.
+    expect(askArguments({ model: 'dsh-fe/deepseek-v4-flash:high[1m]' })).not.toContain('--model')
+    expect(askArguments({ model: 'magpie/auto-gpt-6' })).not.toContain('--model')
     expect(effortFor('high')).toBe('high')
     expect(effortFor('weird')).toBeUndefined()
   })
