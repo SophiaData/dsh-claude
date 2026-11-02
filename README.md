@@ -2,6 +2,11 @@
 
 ## Attention Please
 
+This is the **SophiaData** fork of `dsh-claude`, published as
+`@sophiadata/dsh-claude` and built for the DSH `0.2.1-rc.5` package line. The
+release history lives in [CHANGELOG.md](CHANGELOG.md); the upstream project is
+[Norman-else/dsh-claude](https://github.com/Norman-else/dsh-claude).
+
 ## 1. Overview
 
 `dsh-claude` runs the locally installed Claude Code CLI as a first-class conversation provider inside DeepSeek Harness (DSH). It uses Claude Code's official Agent SDK protocol instead of recreating the agent with a separate API client.
@@ -204,6 +209,7 @@ The type is declared through the label and the `Type:` line rather than a title 
 
 ## 5. Documentation
 
+- [Release history](CHANGELOG.md): what each published version of this fork changed.
 - [Installation and removal](INSTALL.md): profile selection, safe source builds, Doctor, and smoke checks.
 - [Current architecture](docs/aegis/spec/2026-08-15-dsh-claude-spec.md): behavior and ownership boundaries, maintained despite the original filename.
 - [Desktop upgrades](docs/upgrading-dsh-desktop.md): installed-Host audit and verification procedure.
