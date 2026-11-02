@@ -49,7 +49,7 @@ describe('Claude executable resolution', () => {
     })
   })
 
-  it.runIf(process.platform === 'darwin')('falls back after PATH resolution fails', async () => {
+  it.runIf(process.platform === 'darwin')('falls back after PATH resolution fails on macOS', async () => {
     const calls: string[] = []
     const runtime = {
       resolveExecutable: async (candidate: string) => {
@@ -61,6 +61,21 @@ describe('Claude executable resolution', () => {
     }
     const resolved = await resolveClaudeExecutable(runtime)
     expect(resolved.path).toMatch(/\.local\/bin\/claude$/)
+    expect(calls[0]).toBe('claude')
+  })
+
+  it.runIf(process.platform === 'win32')('falls back to the Windows local-bin Claude after PATH fails', async () => {
+    const calls: string[] = []
+    const runtime = {
+      resolveExecutable: async (candidate: string) => {
+        calls.push(candidate)
+        if (candidate === 'claude') throw new Error('missing')
+        return candidate
+      },
+      spawn: () => handle(''),
+    }
+    const resolved = await resolveClaudeExecutable(runtime)
+    expect(resolved.path.toLowerCase()).toMatch(/\.local\\bin\\claude\.exe$/)
     expect(calls[0]).toBe('claude')
   })
 

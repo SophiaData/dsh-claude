@@ -48,8 +48,15 @@ export interface ClaudeDoctorReport {
   handshake: 'not-run' | 'ok' | 'error'
 }
 
-function fallbackCandidates(): string[] {
-  if (process.platform !== 'darwin') return []
+function fallbackCandidates(platform: NodeJS.Platform = process.platform): string[] {
+  if (platform === 'win32') {
+    return [
+      // Native installer / Claude Code local bin on Windows.
+      join(homedir(), '.local', 'bin', 'claude.exe'),
+      join(homedir(), 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+    ]
+  }
+  if (platform !== 'darwin') return []
   return [
     join(homedir(), '.local', 'bin', 'claude'),
     '/opt/homebrew/bin/claude',

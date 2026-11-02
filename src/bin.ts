@@ -19,9 +19,18 @@ async function executable(configured?: string): Promise<string | undefined> {
   if (configured !== undefined) candidates.push(configured)
   else {
     for (const directory of (process.env.PATH ?? '').split(delimiter)) {
-      if (directory.length > 0) candidates.push(join(directory, 'claude'))
+      if (directory.length === 0) continue
+      candidates.push(join(directory, 'claude'))
+      // Windows PATH entries resolve to claude.exe; a bare `claude` file is absent.
+      if (process.platform === 'win32') candidates.push(join(directory, 'claude.exe'))
     }
     candidates.push(join(homedir(), '.local', 'bin', 'claude'), '/opt/homebrew/bin/claude', '/usr/local/bin/claude')
+    if (process.platform === 'win32') {
+      candidates.push(
+        join(homedir(), '.local', 'bin', 'claude.exe'),
+        join(homedir(), 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+      )
+    }
   }
   for (const candidate of [...new Set(candidates)]) {
     if (!isAbsolute(candidate)) continue
