@@ -12,16 +12,20 @@ to compensate for a command aimed at the wrong one. No port is assumed here.
 Examples below use `desktop`; substitute the actual profile throughout.
 If `dsh` is not on PATH, use that installation's CLI entry point instead.
 
-## 2. Install from npm
+## 2. Install from the GitHub release
 
 ```sh
-dsh plugin --profile desktop add @sophiadata/dsh-claude
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.0/sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
 ```
 
 Wait for the profile operation to finish, then quit Desktop completely and
 reopen it. Select **Claude** in a new session. The package's bundle patch
 declares the preset (Desktop Host 0.2.1-rc.5 or later); its route uses the
 active profile package source.
+
+The fork is not published to npm, so `dsh plugin add @sophiadata/dsh-claude`
+does not resolve. Swap the URL for a newer release or install from a source
+checkout instead.
 
 ## 3. Install from a source checkout
 

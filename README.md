@@ -23,15 +23,17 @@ Claude Code remains responsible for its agent loop, tools, `CLAUDE.md`, Skills, 
 
 The plugin never asks for or stores Claude credentials. Authenticate through the local Claude Code CLI before using the plugin.
 
-### Install from npm
+### Install from the GitHub release
 
-Add the published package to the profile used by your running DSH instance. The commands below use `desktop`; replace it with `web` only for an existing Web profile. Use the DSH CLI supplied by that installation:
+Download the release tarball and add it to the profile used by your running DSH instance. The commands below use `desktop`; replace it with `web` only for an existing Web profile. Use the DSH CLI supplied by that installation:
 
 ```sh
-dsh plugin --profile desktop add @sophiadata/dsh-claude
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.0/sophiadata-dsh-claude-0.2.0-sophiadata.0.tgz
 ```
 
 Wait for the profile rebuild to finish, then quit DSH Desktop completely and reopen it. Create a new conversation and select **Claude** from the Agent Preset picker.
+
+This fork is not published to npm, so `dsh plugin add @sophiadata/dsh-claude` does not resolve; install from the release tarball or from a source checkout.
 
 ### Install from source
 
@@ -120,7 +122,7 @@ Cleanup removes only installer-written content and refuses to delete user-modifi
 - **Claude Code settings and Doctor** — Adds a Settings panel for runtime diagnostics, supported Claude settings, output style, AI output renderer, worktree branch prefix, process limits, and authentication and handshake status.
 - **Plan usage** — Reports the signed-in subscription's utilization windows — five-hour, weekly across all models, and weekly per model — with reset countdowns, degrading to unavailable rather than failing on API-key, Bedrock, and Vertex sessions.
 - **Bounded requests and a rationed connection pool** — Caps the plugin's share of the browser's per-origin connections so its own panels can never starve each other or the Host, and gives every route a declared time budget — answers from memory, local Git work, and calls that reach the network each get their own — with the client waiting one round trip longer than the server, so a slow operation reports which budget elapsed instead of hanging in the browser's queue.
-- **Plugin updates** — Checks npm for new releases and updates in place, only when the installation is uniquely identified; local development links are never replaced.
+- **Plugin updates** — Checks npm for new releases and updates in place, only when the installation is uniquely identified; local development links are never replaced. A release-tarball install has no npm entry to compare against, so it reports no update.
 - **Declared Claude preset** — The bundle patch declares the Claude preset as an `@deepseek-ai/dsh-agent-preset` row; its route reuses the active profile package source, so no second client-module Loader appears.
 
 ## 4. Contributing
