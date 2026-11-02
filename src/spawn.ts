@@ -34,12 +34,22 @@ export function scrubClaudeSpawnEnv(env: Readonly<Record<string, string | undefi
  *  found" inside the CLI. Appended, never prepended: the user's own order wins. */
 export const MACOS_TOOL_PATHS = ['/opt/homebrew/bin', '/usr/local/bin', join(homedir(), '.local', 'bin')]
 
+/** Windows Desktop launched from the Start Menu often inherits a PATH without
+ *  the user-local Claude/npm shims. Appended after the inherited PATH. */
+export const WINDOWS_TOOL_PATHS = [join(homedir(), '.local', 'bin')]
+
 export function appendToolPaths(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform = process.platform,
   exists: (dir: string) => boolean = existsSync,
 ): NodeJS.ProcessEnv {
-  if (platform !== 'darwin' || env.PATH === undefined) return env
+  if (env.PATH === undefined) return env
+  if (platform === 'win32') {
+    const current = env.PATH.split(';').filter(Boolean)
+    const missing = WINDOWS_TOOL_PATHS.filter(dir => !current.includes(dir) && exists(dir))
+    return missing.length === 0 ? env : { ...env, PATH: [...current, ...missing].join(';') }
+  }
+  if (platform !== 'darwin') return env
   const current = env.PATH.split(':').filter(Boolean)
   const missing = MACOS_TOOL_PATHS.filter(dir => !current.includes(dir) && exists(dir))
   return missing.length === 0 ? env : { ...env, PATH: [...current, ...missing].join(':') }

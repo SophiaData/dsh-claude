@@ -48,7 +48,7 @@ import { linkedRepositoryShown, touchedFilePaths, touchedPullRequests, touchedRe
 import { SessionRootLedger } from './session-root-ledger.ts'
 import { ReviewCommentStore } from './review-comments.ts'
 import { registerClaudeUpdateRoutes } from './update-routes.ts'
-import { canonicalClaudeModelId, claudeModelRow, claudeModelValue, ensureClaudeModels, probeClaudeModels } from './model-catalog.ts'
+import { canonicalClaudeModelId, claudeDispatchModelValue, claudeModelRow, claudeModelValue, ensureClaudeModels, probeClaudeModels } from './model-catalog.ts'
 import { withElectronNodeRunner } from './windows-job-runner.ts'
 import { detectWindowsSystemProxy, withSystemProxy, type ProxyEnv } from './system-proxy.ts'
 import { normalizePlanUsage, probePlanUsage, recordPlanUsage } from './plan-usage.ts'
@@ -652,7 +652,10 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     registerPullRequestFeedbackRoute(webCtx, new PullRequestFeedbackService(subprocess), cwdForClaudeSession)
     registerAskRoute(webCtx, new AskService(subprocess, supervisorConfig.executablePath), cwdForClaudeSession, sessionId => {
       const snapshot = supervisor.snapshots().find(item => item.sessionId === sessionId)
-      return snapshot === undefined ? undefined : { model: claudeModelValue(snapshot.model), ...(snapshot.thinkingMode === undefined ? {} : { thinkingMode: snapshot.thinkingMode }) }
+      // The ask side query spawns its own CLI process, so a session that
+      // persisted another provider's model must not hand it to that process:
+      // dispatch the preset default instead, same as a turn does.
+      return snapshot === undefined ? undefined : { model: claudeDispatchModelValue(snapshot.model, claudeModelValue(supervisorConfig.defaultModel)), ...(snapshot.thinkingMode === undefined ? {} : { thinkingMode: snapshot.thinkingMode }) }
     })
     const ownsClaudeSession = (sessionId: string): boolean => {
       const agent = webCtx.agents.get(sessionId as never)

@@ -20,7 +20,7 @@ async function fixture() {
   const sourceDir = join(root, 'source')
   const targetDir = join(root, 'home', '.agent-presets', 'claude')
   await mkdir(sourceDir, { recursive: true })
-  await writeFile(join(sourceDir, 'agent.cordis.yml'), "# managed\n- name: '@norman-else/dsh-claude/preset-route'\n")
+  await writeFile(join(sourceDir, 'agent.cordis.yml'), "# managed\n- name: '@sophiadata/dsh-claude/preset-route'\n")
   await writeFile(join(sourceDir, 'preset.yml'), '# managed\nname: Claude Code CLI\n')
   return { sourceDir, targetDir }
 }
@@ -71,7 +71,7 @@ describe('managed Agent Preset installation', () => {
     const paths = await fixture()
     await expect(ensureManagedPreset(paths)).resolves.toBe('installed')
     const installed = await readFile(join(paths.targetDir, 'agent.cordis.yml'), 'utf8')
-    expect(installed).toContain("name: '@norman-else/dsh-claude/preset-route'")
+    expect(installed).toContain("name: '@sophiadata/dsh-claude/preset-route'")
     expect(installed).not.toContain('lib/preset-route.mjs')
   })
 
@@ -83,7 +83,7 @@ describe('managed Agent Preset installation', () => {
     await writeFile(join(paths.targetDir, 'preset.yml'), '# managed\nname: Claude Code CLI\n')
     await expect(ensureManagedPreset(paths)).resolves.toBe('installed')
     const upgraded = await readFile(join(paths.targetDir, 'agent.cordis.yml'), 'utf8')
-    expect(upgraded).toContain("name: '@norman-else/dsh-claude/preset-route'")
+    expect(upgraded).toContain("name: '@sophiadata/dsh-claude/preset-route'")
     expect(upgraded).not.toContain('lib/preset-route.mjs')
     await expect(ensureManagedPreset(paths)).resolves.toBe('unchanged')
   })
@@ -99,7 +99,7 @@ describe('managed Agent Preset installation', () => {
     await writeFile(join(paths.targetDir, 'preset.yml'), '# managed\nname: Claude Code CLI\n')
     await expect(ensureManagedPreset(paths)).resolves.toBe('installed')
     const upgraded = await readFile(join(paths.targetDir, 'agent.cordis.yml'), 'utf8')
-    expect(upgraded).toContain("name: '@norman-else/dsh-claude/preset-route'")
+    expect(upgraded).toContain("name: '@sophiadata/dsh-claude/preset-route'")
     expect(upgraded).not.toContain('preset-route.mjs')
     await expect(ensureManagedPreset(paths)).resolves.toBe('unchanged')
   })
@@ -125,13 +125,22 @@ describe('managed Agent Preset installation', () => {
     await expect(readdir(paths.targetDir)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('refuses a symlinked target directory', async () => {
+  it('refuses a symlinked target directory', async (ctx) => {
+    // Windows developers without SeCreateSymbolicLinkPrivilege get EPERM here.
+    // The installer path is still covered on POSIX CI; skip locally when links fail.
     const paths = await fixture()
     const realDir = join(paths.targetDir, '..', 'real-preset-dir')
     await mkdir(realDir, { recursive: true })
-    const symlinkTarget = paths.targetDir
     const symlinkSource = join(paths.targetDir, '..', 'claude-link')
-    await symlink(realDir, symlinkSource)
+    try {
+      await symlink(realDir, symlinkSource)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EPERM') {
+        ctx.skip()
+        return
+      }
+      throw error
+    }
     await expect(ensureManagedPreset({ ...paths, targetDir: symlinkSource })).rejects.toBeInstanceOf(ManagedPresetConflictError)
     // And the real dir must not have been written through the link.
     await expect(readdir(realDir)).resolves.toEqual([])

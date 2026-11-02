@@ -9,7 +9,9 @@ import { CLAUDE_UPDATE_CHECK_PATH, CLAUDE_UPDATE_PATH } from './constants.ts'
 import { redactText } from './events.ts'
 import { registerPluginRoute, type PluginMethod } from './http.ts'
 
-export const PLUGIN_PACKAGE_NAME = '@norman-else/dsh-claude'
+export const PLUGIN_PACKAGE_NAME = '@sophiadata/dsh-claude'
+/** Upstream npm name kept for status probes against already-published releases. */
+const UPSTREAM_PLUGIN_PACKAGE_NAME = '@norman-else/dsh-claude'
 const MAX_MANIFEST_BYTES = 256 * 1024
 const MAX_UPDATE_OUTPUT_BYTES = 32 * 1024
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/
@@ -146,16 +148,27 @@ export function compareVersions(left: string, right: string): number {
 }
 
 async function registryLatest(signal: AbortSignal): Promise<string> {
-  const response = await fetch('https://registry.npmjs.org/%40norman-else%2Fdsh-claude', {
-    headers: { accept: 'application/vnd.npm.install-v1+json' },
-    signal,
-  })
-  if (!response.ok) throw new Error(`npm registry returned HTTP ${response.status}`)
-  const payload = await response.json() as { 'dist-tags'?: { latest?: unknown } }
-  const latest = payload['dist-tags']?.latest
-  if (typeof latest !== 'string') throw new Error('npm registry response has no latest version')
-  parseVersion(latest)
-  return latest
+  const candidates = [PLUGIN_PACKAGE_NAME, UPSTREAM_PLUGIN_PACKAGE_NAME]
+  let lastError: Error | undefined
+  for (const name of candidates) {
+    const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`, {
+      headers: { accept: 'application/vnd.npm.install-v1+json' },
+      signal,
+    })
+    if (!response.ok) {
+      lastError = new Error(`npm registry returned HTTP ${response.status} for ${name}`)
+      continue
+    }
+    const payload = await response.json() as { 'dist-tags'?: { latest?: unknown } }
+    const latest = payload['dist-tags']?.latest
+    if (typeof latest !== 'string') {
+      lastError = new Error(`npm registry response for ${name} has no latest version`)
+      continue
+    }
+    parseVersion(latest)
+    return latest
+  }
+  throw lastError ?? new Error('npm registry response has no latest version')
 }
 
 async function resolvePackageContextDir(configured?: string): Promise<{ packageDir: string; manifest: PackageManifest }> {

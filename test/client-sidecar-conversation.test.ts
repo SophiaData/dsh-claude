@@ -68,6 +68,8 @@ async function loadConversationNodeAssembler(): Promise<typeof ConversationNodeA
     'react/jsx-runtime': await import('react/jsx-runtime'),
     '@deepseek-ai/dsh-client-store': await import('@deepseek-ai/dsh-client-store'),
     '@deepseek-ai/dsh-client-ui-primitives': await import('@deepseek-ai/dsh-client-ui-primitives'),
+    // Host 0.2.1 conversation client bundles draft schemas that import zod.
+    'zod': await import('zod'),
   }
   Object.assign(globalThis, {
     window: {

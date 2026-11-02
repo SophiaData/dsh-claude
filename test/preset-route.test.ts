@@ -92,4 +92,12 @@ describe('Claude preset route', () => {
     await expect(route('something-else')).resolves.toMatchObject({ model: 'something-else' })
     resetClaudeModels()
   })
+
+  it('backs a provider-qualified model off to the default instead of persisting it', async () => {
+    const captured = capture()
+    apply(captured.ctx)
+    const route = (model: string) => captured.listener()({} as never, async () => ({ provider: 'dsh-fe', model }))
+    await expect(route('dsh-fe/deepseek-v4-flash:high[1m]')).resolves.toMatchObject({ model: 'default' })
+    await expect(route('magpie/auto-gpt')).resolves.toMatchObject({ model: 'default' })
+  })
 })

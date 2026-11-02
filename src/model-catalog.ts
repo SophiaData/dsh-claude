@@ -283,6 +283,34 @@ export function claudeModelValue(id: string): string {
   return claudeModelRow(id)?.value ?? id
 }
 
+/**
+ * Whether an id can belong to this plugin's CLI at all.
+ *
+ * Every Claude Code model id is a bare spelling (`default`, `opus`,
+ * `sonnet`, `claude-fable-5-1[1m]`) and never carries a `/`. A slash is the
+ * DSH shape for `provider/model` (`dsh-fe/deepseek-v4-flash`, `magpie/…`,
+ * `auto/…`), so an id with one names a model this preset must not dispatch:
+ * the CLI dies with `unrecognized_model` and the turn ends with an unknown
+ * side-effect outcome.
+ */
+export function isForeignClaudeModelId(id: string): boolean {
+  return id.includes('/')
+}
+
+/**
+ * The CLI id to dispatch for one persisted selection, backing a foreign model
+ * off to the preset default.
+ *
+ * `claudeModelValue` maps lineup aliases and otherwise passes the id through,
+ * which is right for an unknown-but-plausible CLI spelling. It is wrong for a
+ * provider-qualified id from another DSH provider: the CLI rejects it and the
+ * session reports an unknown outcome. This guard keeps the pass-through for
+ * bare ids and only substitutes the default when the id carries a `/`.
+ */
+export function claudeDispatchModelValue(id: string, fallback: string): string {
+  return isForeignClaudeModelId(id) ? fallback : claudeModelValue(id)
+}
+
 /** Test seam: drop the learned lineup. */
 export function resetClaudeModels(): void {
   latest = undefined

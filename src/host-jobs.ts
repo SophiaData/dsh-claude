@@ -17,12 +17,14 @@ import type { JobHandle, JobOutcome, JobRegistry, JobSourceRead } from '@deepsee
 
 declare module '@deepseek-ai/dsh-jobs/view' {
   interface JobKindMap {
+    /** Host keeps only `bash` built-in; Claude agents register as their own kind. */
+    subagent: 'subagent'
     claude: 'claude'
   }
 }
 
 export type ClaudeHostJobStatus = 'completed' | 'failed' | 'stopped' | 'killed'
-/** `bash` and `subagent` are the Host's own kinds; `claude` covers the rest (workflows). */
+/** `bash` is Host-built-in; `subagent`/`claude` are merged by this plugin. */
 export type ClaudeHostJobKind = 'bash' | 'subagent' | 'claude'
 
 export function hostJobKind(taskType: string | undefined): ClaudeHostJobKind {

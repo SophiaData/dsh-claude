@@ -1,6 +1,6 @@
 # Installation and removal runbook
 
-Current guidance: 2026-09-14, plugin 0.1.51, development graph DSH 0.1.5-rc.2.
+Current guidance: 2026-11-02, plugin 0.2.0-sophiadata.0, development graph DSH 0.2.1-rc.5.
 
 ## 1. Identify the running installation
 
@@ -15,12 +15,12 @@ If `dsh` is not on PATH, use that installation's CLI entry point instead.
 ## 2. Install from npm
 
 ```sh
-dsh plugin --profile desktop add @norman-else/dsh-claude
+dsh plugin --profile desktop add @sophiadata/dsh-claude
 ```
 
 Wait for the profile operation to finish, then quit Desktop completely and
 reopen it. Select **Claude** in a new session. The package's bundle patch
-declares the preset (Desktop 2.0.15 / Host 0.1.7 or later); its route uses the
+declares the preset (Desktop Host 0.2.1-rc.5 or later); its route uses the
 active profile package source.
 
 ## 3. Install from a source checkout
@@ -103,7 +103,7 @@ establish successful real authentication, approval, streaming, or resume.
 The bundle patch declares the preset, so removing the package removes it:
 
 ```sh
-dsh plugin --profile desktop remove @norman-else/dsh-claude
+dsh plugin --profile desktop remove @sophiadata/dsh-claude
 ```
 
 Plugin 0.1.57 and earlier also wrote a compatibility copy to

@@ -31,7 +31,7 @@ import { createUserQuestionBridge } from './user-question.ts'
 import { ClaudeSidecarRepository } from './sidecar.ts'
 import { claudePermissionMode, type ClaudePermissionMode, type ClaudePermissionSelector } from './permission-mode.ts'
 import { normalizeSdkMessage, type NormalizedSdkMessage } from './sdk-messages.ts'
-import { claudeModelRow, claudeModelValue, recordClaudeModels } from './model-catalog.ts'
+import { claudeDispatchModelValue, claudeModelRow, claudeModelValue, recordClaudeModels } from './model-catalog.ts'
 import { readPlanUsageFrom } from './plan-usage.ts'
 import { createManagedClaudeSpawner, type ManagedClaudeProcess } from './spawn.ts'
 import { captureWorktreeTree } from './worktree-snapshot.ts'
@@ -1295,8 +1295,12 @@ export class ClaudeSupervisor {
         ...(forkAt === undefined ? {} : { resumeSessionAt: forkAt }),
       }),
       // `model` is the selector alias DSH persists; the CLI is given the id
-      // that alias currently stands for.
-      model: claudeModelValue(model),
+      // that alias currently stands for. A provider-qualified model from
+      // another DSH provider (`dsh-fe/…`) would make the CLI reject the turn
+      // with unrecognized_model, so it backs off to the preset default here
+      // too (the request header should already have kept it out, but a
+      // persisted session can predate that guard).
+      model: claudeDispatchModelValue(model, claudeModelValue(this.#config.defaultModel)),
       ...(thinkingMode === undefined
         ? {}
         : thinkingMode === 'off'

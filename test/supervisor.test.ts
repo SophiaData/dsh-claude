@@ -612,6 +612,30 @@ describe('Claude supervisor', () => {
     await runtime.dispose()
   })
 
+  it('dispatches the preset default when the session carries another provider model', async () => {
+    // A session forked from a non-Claude conversation, or a picker left on the
+    // Desktop's own model, can persist `dsh-fe/deepseek-v4-flash:high[1m]`.
+    // Handing that to the CLI fails the process with `unrecognized_model` and
+    // the turn closes as an unknown outcome. The dispatch falls back to the
+    // plugin default instead; a bare unknown id still passes through.
+    const transport = factory()
+    const owner = fakeAgent()
+    const runtime = supervisor(transport.create)
+    const output = await runtime.runTurn({ agent: owner.agent, prompt: 'hello', model: 'dsh-fe/deepseek-v4-flash:high[1m]' })
+    const query = transport.queries[0]!
+    expect(query.options.model).toBe('default')
+    query.push(init())
+    query.push(result('hello'))
+    await collect(output)
+
+    const bare = await runtime.runTurn({ agent: owner.agent, prompt: 'bare', model: 'future-model' })
+    expect(transport.queries[1]!.options.model).toBe('future-model')
+    transport.queries[1]!.push(init())
+    transport.queries[1]!.push(result('bare'))
+    await collect(bare)
+    await runtime.dispose()
+  })
+
   it('keeps the real message_delta sample when a placeholder zero follows it', async () => {
     // Claude Code forwards zero usage on the assistant message and the real
     // per-request numbers on the partial stream's message_delta. Whichever

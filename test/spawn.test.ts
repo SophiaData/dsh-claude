@@ -8,6 +8,7 @@ import {
   scrubClaudeSpawnEnv,
   appendToolPaths,
   MACOS_TOOL_PATHS,
+  WINDOWS_TOOL_PATHS,
   toolPathEnv,
 } from '../src/spawn.ts'
 
@@ -111,6 +112,18 @@ describe('managed spawner', () => {
     expect(appendToolPaths({ PATH: '/usr/bin' }, 'linux', () => true)).toEqual({ PATH: '/usr/bin' })
     expect(appendToolPaths({}, 'darwin', () => true)).toEqual({})
     expect(MACOS_TOOL_PATHS[0]).toBe('/opt/homebrew/bin')
+  })
+
+  it('appends the Windows local-bin directory a Start-Menu launch may omit', () => {
+    const localBin = WINDOWS_TOOL_PATHS[0]
+    const exists = (dir: string) => dir === localBin
+    expect(appendToolPaths({ PATH: 'C:\\Windows\\System32' }, 'win32', exists)).toEqual({
+      PATH: `C:\\Windows\\System32;${localBin}`,
+    })
+    expect(appendToolPaths({ PATH: `${localBin};C:\\Windows` }, 'win32', exists)).toEqual({
+      PATH: `${localBin};C:\\Windows`,
+    })
+    expect(appendToolPaths({}, 'win32', () => true)).toEqual({})
   })
 
   it('hands executable lookup a PATH even when the Host has none', () => {
