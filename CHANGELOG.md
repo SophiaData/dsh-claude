@@ -10,6 +10,16 @@ as `@sophiadata-ai/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-03
+
+### Changed
+
+- The build output under `lib/` is committed, and the package builds from
+  `prepublishOnly` instead of `prepack`. A git install
+  (`dsh plugin add https://github.com/SophiaData/dsh-claude`) therefore runs no
+  build script, so the plugin manager installs it without asking to allow
+  build scripts.
+
 ## [0.2.1] - 2026-11-03
 
 First standard SemVer release. Supersedes the `0.2.0-sophiadata.N` prereleases
