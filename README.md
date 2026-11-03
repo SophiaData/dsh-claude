@@ -38,14 +38,14 @@ Wait for the profile rebuild to finish, then quit DSH Desktop completely and reo
 Each release also carries the same build as a prebuilt tarball. Download that asset and add it to the profile:
 
 ```sh
-gh release download v0.2.0-sophiadata.1 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.0-sophiadata.1.tgz
+gh release download v0.2.1 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.1.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.1/sophiadata-ai-dsh-claude-0.2.0-sophiadata.1.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.1/sophiadata-ai-dsh-claude-0.2.1.tgz
 ```
 
 Use the `.tgz` in the release's **Assets**, not the "Source code (tar.gz)" archive. The source archive carries no built `lib/`, so pnpm treats it as a git-hosted dependency and tries to run this package's `prepack` build, refusing with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` until the profile allowlists build scripts.

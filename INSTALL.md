@@ -28,14 +28,14 @@ active profile package source.
 Each release also carries the same build as a prebuilt tarball:
 
 ```sh
-gh release download v0.2.0-sophiadata.1 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.0-sophiadata.1.tgz
+gh release download v0.2.1 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.1.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.0-sophiadata.1/sophiadata-ai-dsh-claude-0.2.0-sophiadata.1.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.1/sophiadata-ai-dsh-claude-0.2.1.tgz
 ```
 
 Use the `.tgz` in the release's **Assets**, not the "Source code (tar.gz)"
