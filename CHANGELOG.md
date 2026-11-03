@@ -10,6 +10,12 @@ as `@sophiadata-ai/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-03
+
+First standard SemVer release. Supersedes the `0.2.0-sophiadata.N` prereleases
+with the same content, so `^0.2.1`-style ranges and `latest` resolve normally.
+Install with `dsh plugin add @sophiadata-ai/dsh-claude`.
+
 ## [0.2.0-sophiadata.1] - 2026-11-03
 
 ### Fixed
