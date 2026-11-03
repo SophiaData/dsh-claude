@@ -23,29 +23,35 @@ reopen it. Select **Claude** in a new session. The package's bundle patch
 declares the preset (Desktop Host 0.2.1-rc.5 or later); its route uses the
 active profile package source.
 
-## 3. Install from the GitHub release (no npm account needed)
+## 3. Install from the GitHub repository
+
+The repository carries the built `lib/`, so the plugin manager installs it
+straight from the Git URL with no build step:
+
+```sh
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude
+```
+
+## 4. Install from the GitHub release (no npm account needed)
 
 Each release also carries the same build as a prebuilt tarball:
 
 ```sh
-gh release download v0.2.1 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.1.tgz
+gh release download v0.2.2 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.2.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.1/sophiadata-ai-dsh-claude-0.2.1.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.2/sophiadata-ai-dsh-claude-0.2.2.tgz
 ```
 
-Use the `.tgz` in the release's **Assets**, not the "Source code (tar.gz)"
-archive. The source archive carries no built `lib/`, so pnpm treats it as a
-git-hosted dependency and tries to run this package's `prepack` build, refusing
-with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` until the profile allowlists build
-scripts. If that error appears, the wrong archive was installed: remove the
-dependency and reinstall from the asset.
+Use the `.tgz` in the release's **Assets** to pin one published build. A Git
+URL follows the repository head. Both carry the built `lib/`, so neither runs a
+build step.
 
-## 4. Install from a source checkout
+## 5. Install from a source checkout
 
 Requires Node.js 20 or later and pnpm. From the checkout:
 
@@ -75,7 +81,7 @@ Or from a POSIX shell:
 dsh plugin --profile desktop add "link:$(pwd)"
 ```
 
-## 5. Check the local Claude CLI
+## 6. Check the local Claude CLI
 
 Claude Code owns authentication. Use its existing login or supported settings
 configuration; never request, copy, print, or store credentials in this plugin.
@@ -97,7 +103,7 @@ Main turns, session titles, and branch summaries load `user`, `project`, and
 `local` settings. Summary calls also inherit behavior settings and use their
 own working directory (`process.cwd()`), not a borrowed session process.
 
-## 6. Smoke test after a full Desktop restart
+## 7. Smoke test after a full Desktop restart
 
 1. Confirm **Claude** appears in the new-session preset picker.
 2. Verify an existing native preset still works.
@@ -120,7 +126,7 @@ On the current Windows Desktop, Host logs are under
 Record what was actually exercised. A source audit or green unit tests do not
 establish successful real authentication, approval, streaming, or resume.
 
-## 7. Remove the plugin
+## 8. Remove the plugin
 
 The bundle patch declares the preset, so removing the package removes it:
 

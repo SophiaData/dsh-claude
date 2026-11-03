@@ -33,22 +33,30 @@ dsh plugin --profile desktop add @sophiadata-ai/dsh-claude
 
 Wait for the profile rebuild to finish, then quit DSH Desktop completely and reopen it. Create a new conversation and select **Claude** from the Agent Preset picker.
 
+### Install from the GitHub repository
+
+The repository carries the built `lib/`, so the plugin manager installs it straight from the Git URL with no build step. Enter the URL in the plugin manager's **Add plugin** dialog, or run:
+
+```sh
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude
+```
+
 ### Install from the GitHub release (no npm account needed)
 
 Each release also carries the same build as a prebuilt tarball. Download that asset and add it to the profile:
 
 ```sh
-gh release download v0.2.1 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.1.tgz
+gh release download v0.2.2 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.2.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.1/sophiadata-ai-dsh-claude-0.2.1.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.2/sophiadata-ai-dsh-claude-0.2.2.tgz
 ```
 
-Use the `.tgz` in the release's **Assets**, not the "Source code (tar.gz)" archive. The source archive carries no built `lib/`, so pnpm treats it as a git-hosted dependency and tries to run this package's `prepack` build, refusing with `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` until the profile allowlists build scripts.
+Use the `.tgz` in the release's **Assets** as a pin to one published build. A Git URL always follows the repository's current `main`-line head.
 
 ### Install from source
 
