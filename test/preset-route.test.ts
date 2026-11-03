@@ -100,4 +100,23 @@ describe('Claude preset route', () => {
     await expect(route('dsh-fe/deepseek-v4-flash:high[1m]')).resolves.toMatchObject({ model: 'default' })
     await expect(route('magpie/auto-gpt')).resolves.toMatchObject({ model: 'default' })
   })
+
+  it('keeps a provider-prefixed model the CLI lineup actually lists', async () => {
+    // A gateway-backed lineup offers `auto/…`, `cursor/…`, `giikin/…` entries.
+    // They carry a slash but are the user's real choice; backing them off would
+    // quietly run the default model instead.
+    recordClaudeModels([
+      { value: 'auto/claude-opus-5-5', displayName: 'Claude Opus 5.5', description: '' },
+      { value: 'giikin/gemini-4-argon[1m]', displayName: 'Gemini 4 Argon', description: '' },
+    ])
+    const captured = capture()
+    apply(captured.ctx)
+    const route = (model: string) => captured.listener()({} as never, async () => ({ provider: 'claude', model }))
+    const opus = await route('auto/claude-opus-5-5')
+    expect(opus.model).not.toBe('default')
+    expect(opus.model).toContain('/')
+    const gemini = await route('giikin/gemini-4-argon[1m]')
+    expect(gemini.model).not.toBe('default')
+    resetClaudeModels()
+  })
 })

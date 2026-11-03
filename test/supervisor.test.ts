@@ -14,7 +14,7 @@ import type {
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SubprocessHandle } from '@deepseek-ai/dsh-subprocess'
 import { AsyncQueue } from '../src/async-queue.ts'
-import { latestClaudeModels, resetClaudeModels } from '../src/model-catalog.ts'
+import { latestClaudeModels, recordClaudeModels, resetClaudeModels } from '../src/model-catalog.ts'
 import { ClaudeSidecarRepository } from '../src/sidecar.ts'
 import type { ClaudeActivityInput } from '../src/events.ts'
 import type { ClaudeRenderMode } from '../src/constants.ts'
@@ -633,6 +633,25 @@ describe('Claude supervisor', () => {
     transport.queries[1]!.push(init())
     transport.queries[1]!.push(result('bare'))
     await collect(bare)
+    await runtime.dispose()
+  })
+
+  it('dispatches a provider-prefixed model the CLI lineup lists', async () => {
+    // Magpie-backed CLI lineups advertise `auto/…`, `cursor/…`, `giikin/…`
+    // entries. They carry a slash but are real dispatchable models; treating
+    // them as foreign would silently run the default instead.
+    recordClaudeModels([
+      { value: 'auto/claude-opus-5-5', displayName: 'Claude Opus 5.5', description: '' },
+    ])
+    const transport = factory()
+    const owner = fakeAgent()
+    const runtime = supervisor(transport.create)
+    const output = await runtime.runTurn({ agent: owner.agent, prompt: 'hello', model: 'auto/claude-opus-5-5' })
+    const query = transport.queries[0]!
+    expect(query.options.model).toBe('auto/claude-opus-5-5')
+    query.push(init())
+    query.push(result('hello'))
+    await collect(output)
     await runtime.dispose()
   })
 

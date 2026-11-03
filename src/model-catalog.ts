@@ -284,16 +284,18 @@ export function claudeModelValue(id: string): string {
 }
 
 /**
- * Whether an id can belong to this plugin's CLI at all.
+ * Whether an id names a model this plugin's CLI cannot dispatch.
  *
- * Every Claude Code model id is a bare spelling (`default`, `opus`,
- * `sonnet`, `claude-fable-5-1[1m]`) and never carries a `/`. A slash is the
- * DSH shape for `provider/model` (`dsh-fe/deepseek-v4-flash`, `magpie/…`,
- * `auto/…`), so an id with one names a model this preset must not dispatch:
- * the CLI dies with `unrecognized_model` and the turn ends with an unknown
- * side-effect outcome.
+ * A model the CLI itself lists is never foreign, even when it carries a
+ * provider prefix: a gateway-backed lineup (Magpie here) offers `auto/…`,
+ * `cursor/…`, `giikin/…` entries that the CLI dispatches itself, and backing
+ * them off would silently swap the user's choice for the default. Only an id
+ * the lineup does not cover *and* that carries a `/` is foreign — the DSH
+ * shape for another provider's model (`dsh-fe/deepseek-v4-flash`), which the
+ * CLI rejects with `unrecognized_model`.
  */
 export function isForeignClaudeModelId(id: string): boolean {
+  if (claudeModelRow(id) !== undefined) return false
   return id.includes('/')
 }
 
@@ -303,9 +305,10 @@ export function isForeignClaudeModelId(id: string): boolean {
  *
  * `claudeModelValue` maps lineup aliases and otherwise passes the id through,
  * which is right for an unknown-but-plausible CLI spelling. It is wrong for a
- * provider-qualified id from another DSH provider: the CLI rejects it and the
+ * provider-qualified id the lineup does not cover: the CLI rejects it and the
  * session reports an unknown outcome. This guard keeps the pass-through for
- * bare ids and only substitutes the default when the id carries a `/`.
+ * both bare ids and lineup-listed gateway models, and substitutes the default
+ * only for a `/`-carrying id the CLI never listed.
  */
 export function claudeDispatchModelValue(id: string, fallback: string): string {
   return isForeignClaudeModelId(id) ? fallback : claudeModelValue(id)

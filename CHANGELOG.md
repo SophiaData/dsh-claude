@@ -10,6 +10,17 @@ as `@sophiadata-ai/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
 
 ## [Unreleased]
 
+## [0.2.0-sophiadata.1] - 2026-11-03
+
+### Fixed
+
+- A provider-prefixed model the CLI lineup actually lists is dispatched as
+  chosen again. The foreign-model guard treated every `/`-carrying id as
+  foreign and backed it off to the preset default, so on a gateway-backed CLI
+  (Magpie: `auto/…`, `cursor/…`, `giikin/…`) picking any of those models
+  silently ran the default model instead. Only an id the lineup does not cover
+  *and* that carries a `/` is foreign now.
+
 ## [0.2.0-sophiadata.0] - 2026-11-02
 
 First release of the fork, adapted to the DSH `0.2.1-rc.5` package line.
