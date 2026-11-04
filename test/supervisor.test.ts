@@ -2645,6 +2645,47 @@ describe('Claude supervisor', () => {
     await runtime.dispose()
   })
 
+  it('keeps a subagent step row without carrying its payload into the projection', async () => {
+    // The agent-group card places a nested step by its toolUseId, name and
+    // phase; it never draws the call's input or the result's output. Storing
+    // them anyway made a long session's sidecar mostly subagent payload — and
+    // every append rewrote all of it.
+    const transport = factory()
+    const owner = fakeAgent()
+    const runtime = supervisor(transport.create)
+    const output = await runtime.runTurn({ agent: owner.agent, prompt: 'delegate' })
+    const query = transport.queries[0]!
+    query.push(init())
+    query.push({
+      type: 'assistant',
+      parent_tool_use_id: 'parent-call',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'tool_use', id: 'nested-1', name: 'Read', input: { file_path: 'README.md', pad: 'p'.repeat(5_000) } }],
+      },
+    } as SDKMessage)
+    query.push({
+      type: 'user',
+      parent_tool_use_id: 'parent-call',
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'nested-1', content: 'r'.repeat(10_000) }],
+      },
+    } as SDKMessage)
+    query.push(result('done'))
+    await collect(output)
+    const nested = (await projection(runtime)).activities.filter(activity => activity.parentToolUseId === 'parent-call')
+    expect(nested).toHaveLength(2)
+    // The step is still recorded and still identifies itself.
+    expect(nested.map(activity => activity.kind)).toEqual(['subagent', 'subagent'])
+    expect(nested[0]).toMatchObject({ toolUseId: 'nested-1', toolName: 'Read', phase: 'started' })
+    expect(nested[1]).toMatchObject({ toolUseId: 'nested-1', phase: 'completed' })
+    // The payload is not.
+    expect(nested[0]!.detail).toBeUndefined()
+    expect(nested[1]!.detail).toBeUndefined()
+    await runtime.dispose()
+  })
+
   it('does not register native presenters for Claude-owned tool names', async () => {
     const transport = factory()
     const owner = fakeAgent()

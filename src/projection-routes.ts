@@ -110,6 +110,27 @@ export function registerClaudeProjectionRoute(
   const info = (message: string): void => {
     ctx.logger?.info?.(message)
   }
+  /** A snapshot that could not be assembled must not disappear.
+   *
+   *  Losing one snapshot is survivable — the carrier retries on the next
+   *  `sync`, the next tick's sweep, or the client's own reconnect. Losing it
+   *  *silently* is not: the stream stays open and keeps pinging, so the reader
+   *  sees a spinner and no error, and nothing in the log says why. That is how
+   *  an activity-window overflow presented: the projection threw on every
+   *  attempt, both call sites here swallowed it, and the session never
+   *  finished loading.
+   *
+   *  The snapshot is a whole-document encode, so a failure is usually
+   *  permanent for that session rather than transient. Say so once per
+   *  session, then keep retrying quietly: the log should carry the reason, not
+   *  a line per tick. */
+  const reportedSnapshotFailures = new Set<string>()
+  const reportSnapshotFailure = (sessionId: string, error: unknown): void => {
+    const message = error instanceof Error ? error.message : String(error)
+    if (reportedSnapshotFailures.has(sessionId)) return
+    reportedSnapshotFailures.add(sessionId)
+    ctx.logger?.warn?.(`dsh-claude: projection snapshot for ${sessionId} could not be built: ${message}`)
+  }
 
   /** Everything the host already knows, without touching the repository. */
   const localMeta = (sessionId: string): ProjectionMeta => {
@@ -230,7 +251,7 @@ export function registerClaudeProjectionRoute(
           writeLine({ type: 'checkpoint', session: sessionId, seq: delta.seq })
           return
         case 'sync':
-          void writeSnapshot(sessionId).catch(() => undefined)
+          void writeSnapshot(sessionId).catch((error: unknown) => reportSnapshotFailure(sessionId, error))
       }
     }))
     const refreshMeta = async (sessionId: string): Promise<void> => {
@@ -246,7 +267,7 @@ export function registerClaudeProjectionRoute(
     // Per-session, in parallel: a wedged repository probe costs its own lane
     // its first paint, not everyone else's.
     for (const sessionId of sessionIds) {
-      void writeSnapshot(sessionId).catch(() => undefined)
+      void writeSnapshot(sessionId).catch((error: unknown) => reportSnapshotFailure(sessionId, error))
     }
     // One sweep at a time. Each lane's probe chains git commands and a network
     // `gh pr view`, and the interval has no idea how long the last one took --

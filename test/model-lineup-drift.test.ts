@@ -40,3 +40,55 @@ describe('Claude model lineup drift', () => {
     },
   )
 })
+
+describe('aliasing a lineup id this plugin did not derive', () => {
+  afterEach(() => { resetClaudeModels() })
+
+  const row = (value: string): ModelInfo => ({
+    value,
+    displayName: value,
+    description: '',
+  }) as ModelInfo
+
+  // The family fold exists for Anthropic's own spellings. Applied to a
+  // gateway's ids it invented names the CLI rejects — `codex/gpt-6.1-terra`
+  // became `codex/gpt`, the CLI answered `unrecognized_model`, and the turn
+  // hung with no output until it was stopped by hand.
+  it('advertises every gateway model by the id the CLI gave it', () => {
+    const gateway = ['codex/gpt-6.1-terra', 'codex/gpt-6.1-sol', 'codex/gpt-6-astra', 'workbuddy/kimi-k3.1-pro', 'auto/deepseek-v4.1-flash']
+    const ids = catalogOf(gateway.map(row))
+    // The catalog also carries the stable aliases; what matters is that every
+    // gateway row survived under its own id.
+    for (const id of gateway) expect(ids, id).toContain(id)
+    expect(ids).not.toContain('codex/gpt')
+    expect(ids).not.toContain('workbuddy/kimi')
+    expect(ids).not.toContain('auto/deepseek')
+  })
+
+  // The bug's worst shape: the whole family folded onto one alias, so the
+  // `taken` collision guard handed only the first row a distinct id and the
+  // rest fell back to their real names. One selector entry, three models.
+  it('keeps sibling ids distinct instead of folding them together', () => {
+    const family = ['codex/gpt-6.1-terra', 'codex/gpt-6.1-sol', 'codex/gpt-6-astra']
+    const ids = catalogOf(family.map(row))
+    // Each sibling survives under its own id, so the catalog holds three
+    // distinct gpt rows rather than one alias standing in for all of them.
+    for (const id of family) expect(ids, id).toContain(id)
+    expect(ids).not.toContain('codex/gpt')
+  })
+
+  it('still folds Anthropic families onto their stable alias', () => {
+    // `fable` is a seed alias, so a concrete row keeps its own spelling beside
+    // it (reservedAliases) while the alias itself stays selectable — that is
+    // what lets a persisted `fable` selection survive a version bump.
+    for (const value of ['claude-fable-5-1', 'claude-fable-5-2']) {
+      const ids = catalogOf([row(value)])
+      expect(ids, value).toContain('fable')
+      expect(ids, value).toContain(value)
+    }
+    // An unreleased family with no seed alias still folds onto its family name,
+    // which is the behaviour this change had to preserve.
+    const ids = catalogOf([row('claude-nova-7-3')])
+    expect(ids).toContain('nova')
+  })
+})

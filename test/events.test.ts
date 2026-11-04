@@ -86,6 +86,47 @@ describe('event normalization', () => {
     expect(normalized.summary).toContain('[truncated]')
   })
 
+  it('bounds a telemetry row tighter than a card a reader sees', () => {
+    // A row Claude emitted inside a subagent places a step in the agent-group
+    // card; the card draws its name and phase, never its payload. Mirroring the
+    // payload at the root budget made these rows the largest thing in a long
+    // session's sidecar, and every append rewrote them.
+    const nested = normalizeActivity({
+      turn: 9,
+      step: 1,
+      ordinal: 30,
+      kind: 'subagent',
+      parentToolUseId: 'call_parent',
+      toolName: 'Bash',
+      detail: 'x'.repeat(10_000),
+    })
+    expect(nested.detail?.length).toBeLessThanOrEqual(512)
+
+    // The same budget question asked of a root call keeps the full 4,000, since
+    // that card does show its input.
+    const root = normalizeActivity({
+      turn: 9,
+      step: 1,
+      ordinal: 31,
+      kind: 'tool-call',
+      toolName: 'Bash',
+      detail: 'x'.repeat(10_000),
+    })
+    expect(root.detail?.length).toBeLessThanOrEqual(4_000)
+    expect(root.detail?.length).toBeGreaterThan(512)
+  })
+
+  it('keeps a root call and result payload whole', () => {
+    const call = normalizeActivity({
+      turn: 1,
+      step: 1,
+      ordinal: 0,
+      kind: 'tool-call',
+      detail: { command: 'ls -la' },
+    })
+    expect(JSON.parse(call.detail ?? '')).toMatchObject({ command: 'ls -la' })
+  })
+
   it('trims the longest field of an oversized detail so it still parses', () => {
     const normalized = normalizeActivity({
       turn: 1,

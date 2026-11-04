@@ -385,4 +385,29 @@ describe('Claude sidecar projection route', () => {
     expect(timer).toBeDefined()
     expect(clearIntervals).toHaveBeenCalledWith(timer)
   })
+
+  it('says why a snapshot could not be built, once per session', async () => {
+    // A snapshot that throws used to disappear into an empty catch: the carrier
+    // stayed open and kept pinging, so the reader saw a spinner and no error,
+    // and nothing in the log said why. One line per session names the reason
+    // without a line per tick.
+    const warnings: string[] = []
+    const ctx = Object.assign(context(), {
+      logger: { info: () => {}, warn: (message: string) => warnings.push(message) },
+    })
+    const sidecar = {
+      read: async () => { throw new Error('dsh-claude: invalid sidecar document') },
+      subscribe: () => () => {},
+      sequence: () => 0,
+    } as unknown as ClaudeSidecarRepository
+    registerClaudeProjectionRoute(ctx, sidecar, () => true)
+    const res = response()
+    const pending = ctx.handler(request(multi('session/a')), res)
+    await settled()
+    await settled()
+    for (const callback of res.closeHandlers) callback()
+    await pending
+    expect(warnings.filter(line => line.includes('session/a'))).toHaveLength(1)
+    expect(warnings[0]).toContain('invalid sidecar document')
+  })
 })

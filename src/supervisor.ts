@@ -1515,7 +1515,11 @@ export class ClaudeSupervisor {
           toolName: message.toolName,
           title: message.toolName,
           summary: message.parentToolUseId === undefined ? rootCallSummary(message.toolName, message.input) : `Subagent called ${message.toolName}`,
-          detail: message.input,
+          // A nested call is only here to place a step in the agent-group card,
+          // which reads the name and the phase and never the input. Keeping the
+          // payload made these rows the largest thing in a long session's
+          // sidecar -- and every one of them was re-serialized on every append.
+          detail: message.parentToolUseId === undefined ? message.input : undefined,
         })
         // The lead's own list, or the task board every member shares.
         if (message.toolName === 'TodoWrite' && message.parentToolUseId === undefined) {
@@ -1541,7 +1545,9 @@ export class ClaudeSupervisor {
           toolUseId: message.toolUseId,
           ...(message.parentToolUseId === undefined ? {} : { parentToolUseId: message.parentToolUseId }),
           title: message.isError ? 'Tool failed' : 'Tool completed',
-          detail: message.output,
+          // Same reason as the nested call above: the group card draws this
+          // step's status, not its output, so the output is not stored twice.
+          detail: message.parentToolUseId === undefined ? message.output : undefined,
           isError: message.isError,
         })
         return

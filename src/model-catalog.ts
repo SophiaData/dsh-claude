@@ -84,8 +84,23 @@ function declaredContextWindow(row: ModelInfo): number | undefined {
  */
 export function claudeModelAlias(value: string): string {
   const wide = WIDE_ROUTE.test(value)
-  const bare = value.replace(WIDE_ROUTE, '').replace(/^claude-/u, '')
-  const family = bare.split('-').find(segment => !/^\d+$/u.test(segment)) ?? bare
+  const bare = value.replace(WIDE_ROUTE, '')
+  // Only Anthropic's own spelling has a family to fold. `claude-fable-5-1` and
+  // `claude-3-5-sonnet-…` name the same family under two spellings, so the
+  // segment after one version bump keeps a persisted selection pointing at the
+  // model rather than at the release.
+  //
+  // Anything else is somebody else's id — a gateway's (`codex/gpt-6.1-terra`,
+  // `workbuddy/kimi-k3.1-pro`) or a bare CLI alias. Splitting those on `-`
+  // silently invented names the CLI has never heard of: `codex/gpt-6.1-terra`
+  // became `codex/gpt`, which the CLI rejects with `unrecognized_model`, and
+  // every turn dispatched with it hung until the user stopped it. Worse, the
+  // whole `codex/gpt-*` family folded onto one alias, so only the first row
+  // kept a distinct id. An id this plugin did not derive is passed through
+  // untouched.
+  if (!bare.startsWith('claude-')) return wide ? `${bare}[1m]` : bare
+  const stripped = bare.replace(/^claude-/u, '')
+  const family = stripped.split('-').find(segment => !/^\d+$/u.test(segment)) ?? stripped
   return wide ? `${family}[1m]` : family
 }
 
