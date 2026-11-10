@@ -460,7 +460,11 @@ export async function readDefaultPermissionMode(deps: GlobalSettingsDependencies
 
 export async function readWorktreeBranchPrefix(deps: GlobalSettingsDependencies = {}): Promise<string> {
   const paths = pathsFor(deps)
-  return WORKTREE_BRANCH_PREFIX.read(await readDocument(paths.pluginSettingsFile))
+  try {
+    return WORKTREE_BRANCH_PREFIX.read(await readDocument(paths.pluginSettingsFile))
+  } catch {
+    return DEFAULT_WORKTREE_BRANCH_PREFIX
+  }
 }
 
 async function atomicWrite(path: string, document: JsonObject): Promise<void> {

@@ -138,11 +138,9 @@ export function GlobalSettingText({ setting, disabled, onChange }: {
       onKeyDown={event => {
         if (event.key === 'Enter') {
           event.preventDefault()
-          save()
           event.currentTarget.blur()
         } else if (event.key === 'Escape') {
           setDraft(setting.value)
-          event.currentTarget.blur()
         }
       }}
     />
@@ -155,8 +153,9 @@ export function GlobalSettingSelect({ setting, disabled, onChange, labelFor = op
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const listboxId = useId()
-  const selectedIndex = Math.max(0, setting.options.findIndex(option => option.value === setting.value))
-  const selectedOption = setting.options[selectedIndex]
+  const foundIndex = setting.options.findIndex(option => option.value === setting.value)
+  const selectedIndex = Math.max(0, foundIndex)
+  const selectedOption = foundIndex === -1 ? undefined : setting.options[foundIndex]
 
   useEffect(() => {
     if (!open) return
