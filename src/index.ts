@@ -353,6 +353,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
        *  bypass. Sessions found on boot keep whatever they were on. */
       const align = async (agent: Agent): Promise<void> => {
         if (permissionSelector === 'native') return
+        if (ctx.agentPresets.composedPreset(agent.ctx) !== 'claude') return
         const sessionId = agent.id as string
         try {
           const [projection, defaultMode] = await Promise.all([sidecar.read(sessionId), readDefaultPermissionMode()])

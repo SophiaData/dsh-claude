@@ -147,6 +147,7 @@ export function createAutoModeEscalation(): Partial<Record<HookEvent, HookCallba
     PreToolUse: [{
       hooks: [async input => {
         if (input.hook_event_name !== 'PreToolUse') return {}
+        if (blocked.size === 0) return {}
         const callKey = key(input.tool_name, input.tool_input)
         const reason = blocked.get(callKey)
         if (reason === undefined) return {}

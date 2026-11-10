@@ -10,6 +10,19 @@ as `@sophiadata-ai/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-04
+
+### Fixed
+
+- A gateway model id is no longer folded into a name the CLI rejects: only
+  `claude-` ids are folded, so `codex/gpt-6.1-sol` and similar ids stay as the
+  CLI spelled them instead of collapsing to `codex/gpt`.
+- A subagent step's payload is no longer stored in the parent projection:
+  mirrored rows carry no `detail`, and rows with a `parentToolUseId` are
+  bounded to 512 characters.
+- A projection snapshot that could not be built is reported once per session
+  instead of being swallowed by `.catch(() => undefined)`.
+
 ## [0.2.2] - 2026-11-03
 
 ### Changed

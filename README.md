@@ -31,6 +31,8 @@ Add the published package to the profile used by your running DSH instance. The 
 dsh plugin --profile desktop add @sophiadata-ai/dsh-claude
 ```
 
+npm's `latest` tag is `0.2.2`; `0.2.3` is published on the GitHub release below. Use the release tarball to pin the current build.
+
 Wait for the profile rebuild to finish, then quit DSH Desktop completely and reopen it. Create a new conversation and select **Claude** from the Agent Preset picker.
 
 ### Install from the GitHub repository
@@ -46,14 +48,14 @@ dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude
 Each release also carries the same build as a prebuilt tarball. Download that asset and add it to the profile:
 
 ```sh
-gh release download v0.2.2 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.2.tgz
+gh release download v0.2.3 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.3.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.2/sophiadata-ai-dsh-claude-0.2.2.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.3/sophiadata-ai-dsh-claude-0.2.3.tgz
 ```
 
 Use the `.tgz` in the release's **Assets** as a pin to one published build. A Git URL always follows the repository's current `main`-line head.
@@ -83,16 +85,16 @@ dsh plugin --profile desktop add "link:$(pwd)"
 
 ### Remove the plugin
 
+Plugin 0.1.57 and earlier also copied a compatibility preset to `$DSH_HOME/.agent-presets/claude`. Host 0.1.7 no longer reads that directory; remove the leftover copy **while the package is still installed**:
+
+```sh
+dsh plugin --profile desktop exec dsh-claude remove-preset
+```
+
 The Claude preset is declared by the package's bundle patch, so removing the package removes it:
 
 ```sh
 dsh plugin --profile desktop remove @sophiadata-ai/dsh-claude
-```
-
-Plugin 0.1.57 and earlier also copied a compatibility preset to `$DSH_HOME/.agent-presets/claude`. Host 0.1.7 no longer reads that directory; remove the leftover copy with:
-
-```sh
-dsh plugin --profile desktop exec dsh-claude remove-preset
 ```
 
 Cleanup removes only installer-written content and refuses to delete user-modified preset files.
@@ -102,7 +104,7 @@ Cleanup removes only installer-written content and refuses to delete user-modifi
 ### 3.1 Conversation
 
 - **Native Claude Code conversations** — Runs Claude Code as the main agent in a normal DSH conversation instead of wrapping it as a tool or secondary chat.
-- **Claude preset and model selection** — Adds a `Claude` Agent Preset and reads Claude Code's model catalog. `default`, `opus[1m]`, `fable`, `sonnet`, and `haiku` are fallback choices when the catalog is unavailable.
+- **Claude preset and model selection** — Adds a `Claude` Agent Preset and reads Claude Code's model catalog. `default`, `opus`, `opus[1m]`, `fable`, `sonnet`, and `haiku` are fallback choices when the catalog is unavailable.
 - **Thinking effort** — Maps DSH's per-model reasoning effort onto Claude Code's thinking modes — `off`, `low`, `medium`, `high` (Claude Code's own default), `xhigh`, `max`, and `ultracode` — so the conversation's effort control drives extended thinking directly. Models that do not support a mode downgrade silently inside Claude Code; `ultracode` additionally turns on standing dynamic-workflow orchestration and needs an `xhigh`-capable model.
 - **Local Claude environment compatibility** — Preserves the user's existing Claude Code authentication, settings, `CLAUDE.md`, Skills, Hooks, Plugins, tools, and MCP configuration.
 - **Real-time streaming and conversation continuity** — Streams Claude responses and tool activity into DSH while retaining multi-turn context and persisted Claude session resume.
@@ -123,7 +125,7 @@ Cleanup removes only installer-written content and refuses to delete user-modifi
 - **Agent Team** — Claude Code's implicit team (named agents, the shared task list, and mail between members) gets a session-header roster and a per-teammate conversation tab, mirroring DSH's own Agent Team UI.
 - **Turn accounting** — Closes each turn the plugin transcript drew with the footer DSH gives only its own messages: tokens, cache hit rate, wall time, time to first token, and cumulative cost. The timings are measured as the turn runs, because activity records carry no clock of their own.
 - **Managed process lifecycle** — Keeps one live Claude process per active session, serializes turns, evicts idle processes, queues user turns FIFO when every process slot is busy, converges safely after the limit is lowered, and handles Stop, cancellation, restart, and process-tree cleanup.
-- **Bilingual interface** — Ships every user-facing string in both English and Chinese.
+- **Bilingual interface** — Ships the plugin's own interface strings in both English and Chinese; text derived from Claude Code activity and model output keeps the CLI's original language.
 
 ### 3.2 Repository, worktrees, and pull requests
 
@@ -203,7 +205,7 @@ Both types require enough detail for someone else to reproduce your situation wi
 
 - **Stay out-of-tree.** Use only public DSH exports. Never patch the installed DSH checkout, and never depend on DSH internals that are not exported.
 - **Respect the ownership split.** Claude Code owns its agent loop and tools; this plugin owns presentation, approval and question surfaces, and managed process lifetime. Changes that re-implement Claude Code behavior inside the plugin will be rejected.
-- **Read the spec first** when you change runtime behavior: `docs/aegis/spec/2026-08-15-dsh-claude-spec.md` and the current plan under `docs/aegis/plan/` and `docs/aegis/plans/`. If you are reacting to a DSH Desktop upgrade, follow `docs/upgrading-dsh-desktop.md` — the Host ships no type declarations, so `pnpm typecheck` cannot see its API drift.
+- **Read the spec first** when you change runtime behavior: [`docs/aegis/spec/2026-08-15-dsh-claude-spec.md`](https://github.com/SophiaData/dsh-claude/blob/master/docs/aegis/spec/2026-08-15-dsh-claude-spec.md) and the current plan under [`docs/aegis/plan/`](https://github.com/SophiaData/dsh-claude/tree/master/docs/aegis/plan/) and [`docs/aegis/plans/`](https://github.com/SophiaData/dsh-claude/tree/master/docs/aegis/plans/). If you are reacting to a DSH Desktop upgrade, follow [`docs/upgrading-dsh-desktop.md`](https://github.com/SophiaData/dsh-claude/blob/master/docs/upgrading-dsh-desktop.md) — the Host ships no type declarations, so `pnpm typecheck` cannot see its API drift.
 - **Never log, persist, render, or test with real credentials.** Redact before any durable event append.
 - **Run `pnpm check`** — typecheck for both tsconfigs, the Vitest suite, and the build — and make sure it passes before you open the pull request. Do not claim a change works without it.
 - **Cover behavior with tests** where the change is testable. A `fix` should come with a test that fails before the change and passes after it.
@@ -236,6 +238,6 @@ The type is declared through the label and the `Type:` line rather than a title 
 
 - [Release history](CHANGELOG.md): what each published version of this fork changed.
 - [Installation and removal](INSTALL.md): profile selection, safe source builds, Doctor, and smoke checks.
-- [Current architecture](docs/aegis/spec/2026-08-15-dsh-claude-spec.md): behavior and ownership boundaries, maintained despite the original filename.
-- [Desktop upgrades](docs/upgrading-dsh-desktop.md): installed-Host audit and verification procedure.
-- [Documentation index](docs/aegis/INDEX.md): distinguishes current guidance from historical plans and evidence.
+- [Current architecture](https://github.com/SophiaData/dsh-claude/blob/master/docs/aegis/spec/2026-08-15-dsh-claude-spec.md): behavior and ownership boundaries, maintained despite the original filename.
+- [Desktop upgrades](https://github.com/SophiaData/dsh-claude/blob/master/docs/upgrading-dsh-desktop.md): installed-Host audit and verification procedure.
+- [Documentation index](https://github.com/SophiaData/dsh-claude/blob/master/docs/aegis/INDEX.md): distinguishes current guidance from historical plans and evidence.

@@ -1,6 +1,6 @@
 # Installation and removal runbook
 
-Current guidance: 2026-11-02, plugin 0.2.0-sophiadata.0, development graph DSH 0.2.1-rc.5.
+Current guidance: 2026-11-10, plugin 0.2.3, development graph DSH 0.2.1-rc.5.
 
 ## 1. Identify the running installation
 
@@ -17,6 +17,8 @@ If `dsh` is not on PATH, use that installation's CLI entry point instead.
 ```sh
 dsh plugin --profile desktop add @sophiadata-ai/dsh-claude
 ```
+
+npm's `latest` tag is `0.2.2`; `0.2.3` is published on the GitHub release below. Use the release tarball to pin the current build.
 
 Wait for the profile operation to finish, then quit Desktop completely and
 reopen it. Select **Claude** in a new session. The package's bundle patch
@@ -37,14 +39,14 @@ dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude
 Each release also carries the same build as a prebuilt tarball:
 
 ```sh
-gh release download v0.2.2 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.2.tgz
+gh release download v0.2.3 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.3.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.2/sophiadata-ai-dsh-claude-0.2.2.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.3/sophiadata-ai-dsh-claude-0.2.3.tgz
 ```
 
 Use the `.tgz` in the release's **Assets** to pin one published build. A Git
@@ -122,24 +124,25 @@ own working directory (`process.cwd()`), not a borrowed session process.
     `[slot-entry-crashed]`, and plugin refresh failures.
 
 On the current Windows Desktop, Host logs are under
-`%APPDATA%/DSH Desktop/logs/host/`; shell startup logs are one directory above.
+`%APPDATA%\@deepseek-ai\dsh-desktop\logs\`; older builds used
+`%APPDATA%\DSH Desktop\logs\host\`.
 Record what was actually exercised. A source audit or green unit tests do not
 establish successful real authentication, approval, streaming, or resume.
 
 ## 8. Remove the plugin
 
+Plugin 0.1.57 and earlier also wrote a compatibility copy to
+`$DSH_HOME/.agent-presets/claude`, which Host 0.1.7 no longer reads. Delete it
+**while the package is still installed**:
+
+```sh
+dsh plugin --profile desktop exec dsh-claude remove-preset
+```
+
 The bundle patch declares the preset, so removing the package removes it:
 
 ```sh
 dsh plugin --profile desktop remove @sophiadata-ai/dsh-claude
-```
-
-Plugin 0.1.57 and earlier also wrote a compatibility copy to
-`$DSH_HOME/.agent-presets/claude`, which Host 0.1.7 no longer reads. Delete it
-while the package is still installed:
-
-```sh
-dsh plugin --profile desktop exec dsh-claude remove-preset
 ```
 
 Cleanup refuses user-modified presets; review them manually rather than forcing
