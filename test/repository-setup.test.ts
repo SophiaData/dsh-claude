@@ -511,8 +511,8 @@ describe('repository setup service', () => {
       .rejects.toMatchObject<Partial<RepositorySetupError>>({ code: 'branch-tracking-conflict' })
   })
 
-  // Deleting the workspace is the user saying they are done with it, so the
-  // sweep no longer inspects the tree and no longer keeps a dirty worktree.
+  // Deleting a Workspace removes its registration, not the user's files.
+  // The orphan sweep must preserve dirty work even after its grace period.
   it('keeps a dirty worktree and its lease when the Workspace is deleted', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
     const replies = [
