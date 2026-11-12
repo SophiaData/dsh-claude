@@ -115,7 +115,8 @@ describe('Claude client slash source', () => {
       throw new Error('expected Claude Skill command claim')
     }
     await expect(match.claim.submit('src/ lib/')).resolves.toEqual({ kind: 'success' })
-    expect(send).toHaveBeenCalledExactlyOnceWith('/engineering:review src/ lib/')
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledWith('/engineering:review src/ lib/')
   })
 
   it('combines the plugin fiber inject with the target session scope', async () => {
