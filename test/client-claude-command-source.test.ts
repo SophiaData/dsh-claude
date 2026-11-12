@@ -3,6 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ClaudeClientProjection, ClaudeProjectionSource, ClaudeProjectionStore } from '../src/client/projection.ts'
 import { createClaudeCommandSource, submitClaudeCommand } from '../src/client/claude-command-source.ts'
+import { projectClaudeCommands } from '../src/command-bridge.ts'
 
 const projection: ClaudeClientProjection = {
   schemaVersion: 1,
@@ -86,6 +87,35 @@ describe('Claude client slash source', () => {
     expect(ctx.sessions.scope).toHaveBeenCalledWith('session-1')
     expect(ctx.extend).toHaveBeenCalledWith({ sessionTag: 'session-1' })
     expect(send).toHaveBeenCalledWith('/awesome-skills:ci-deploy sat')
+  })
+
+  it('projects a plugin-qualified Skill without registering a Host command and forwards the exact invocation', async () => {
+    // A DSH-native /review command has priority in the shared slash menu.
+    // Claude's skill keeps its original qualified name even after its public
+    // display alias is renamed to avoid the Host collision.
+    const projected = projectClaudeCommands([{
+      name: 'engineering:review',
+      description: 'Review source changes',
+      argumentHint: '<files>',
+      aliases: ['review'],
+    }], { list: () => [{ name: 'review' }] })
+    expect(projected).toEqual([{
+      publicName: 'claude-review',
+      claudeName: 'engineering:review',
+      description: 'Review source changes',
+      hint: '<files>',
+      prefixed: true,
+    }])
+    const { ctx, send } = context()
+    const source = createClaudeCommandSource(ctx, store({ ...projection, commands: projected }))
+    const session = { sessionId: 'session-1' } as never
+    const match = await source.matchEnter?.(session, '/claude-review src/', new AbortController().signal)
+    expect(match).toMatchObject({ claim: { name: 'claude-review', token: '/claude-review ' } })
+    if (match === undefined || match === 'handled' || !('claim' in match)) {
+      throw new Error('expected Claude Skill command claim')
+    }
+    await expect(match.claim.submit('src/ lib/')).resolves.toEqual({ kind: 'success' })
+    expect(send).toHaveBeenCalledExactlyOnceWith('/engineering:review src/ lib/')
   })
 
   it('combines the plugin fiber inject with the target session scope', async () => {
