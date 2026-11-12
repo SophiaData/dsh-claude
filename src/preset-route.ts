@@ -24,16 +24,17 @@ export function apply(ctx: Context, config: Config = {}): void {
   // Legacy Hosts without agent.model continue using the old request hook.
   let hasPublicModelControl = false
   ctx.on('agent/created', ({ agent }) => {
-    if (ctx.get('agentPresets')?.composedPreset(agent.ctx) !== 'claude') return
+    if (ctx.get('agentPresets')?.composedPreset(agent.ctx) !== 'claude') return undefined
     const control = publicModelControl(agent)
-    if (control === undefined) return
+    if (control === undefined) return undefined
     hasPublicModelControl = true
     const current = control.current()
     const selected = config.model
       ?? (current?.provider === CLAUDE_CODE_PROVIDER ? current.model : 'default')
     const model = isForeignClaudeModelId(selected) ? 'default' : canonicalClaudeModelId(selected)
-    if (current?.provider === CLAUDE_CODE_PROVIDER && current.model === model) return
+    if (current?.provider === CLAUDE_CODE_PROVIDER && current.model === model) return undefined
     control.select({ provider: CLAUDE_CODE_PROVIDER, model })
+    return undefined
   })
 
   // Compatibility only: older DSH versions let a preset rewrite the request
