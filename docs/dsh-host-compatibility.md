@@ -11,12 +11,15 @@ This repository is a native Claude Code integration for the DSH Host. Passing Ty
 
 All jobs install the **locked DSH development dependency graph**, currently `@deepseek-ai/dsh-agent@0.2.1-rc.5`. The Node 24 job does **not** imply the current DSH Desktop bundle uses that same package version.
 
-`test/dsh-host-model-contract.test.ts` imports the **actual published** `AgentModel`, `modelSelectionProjectionDefinition`, and `Session` implementation from the installed DSH packages. It verifies:
+`test/dsh-host-model-contract.test.ts` uses the **real published** `@deepseek-ai/dsh-session` `Session`, with an in-memory event registration harness and a small structural adapter for the public `agent.model.current()/select()` surface. It verifies:
 
-1. A new Claude preset can select its route before the first request, and the choice is stored as a `model/selection` Session event.
-2. A replayed Session restores a previously recorded Claude model rather than overwriting it.
+1. A new Claude preset selects its route before the first request, recorded as a `model/selection` Session event.
+2. A reconstructed Session retains its previous Claude model choice.
 3. An unrelated non-Claude preset is not rerouted by Claude's creation hook.
-4. An explicit Claude model override persists through the DSH model-selection projection.
+4. An explicit Claude model override is recorded in the Session.
+
+At this baseline, the published `@deepseek-ai/dsh-agent@0.2.1-rc.5` **does not export an instantiable `AgentModel` constructor at runtime** (despite the newer upstream source showing one). A separate conditional canary exercises the actual `AgentModel` and model-selection projection when a future locked Host package exports them; until then it is explicitly skipped, not silently presented as a passed integration.
+
 
 `test/preset-route.test.ts` additionally ensures compatibility is **per Agent**: a modern session must not disable the legacy request fallback for a different session. It also ensures the prepared request object, including explicit reasoning effort, stays unchanged on modern Hosts.
 
@@ -24,7 +27,7 @@ The existing permission-mode, route-budget, session and SDK-message tests remain
 
 ## Scope and limitations
 
-The contract tests use real DSH model and Session libraries, but a small in-memory event registration harness. They do **not** boot the full DSH Desktop, communicate with the local Claude CLI, test real Claude authentication, write actual disk persistence, or validate every native client slot. In particular, passing these tests **cannot** be reported as an end-to-end Desktop compatibility certification.
+The current baseline tests use the real DSH Session event implementation but **not** the real AgentModel constructor or a fully mounted Host. They use a structural model-control adapter and in-memory event hooks. They do **not** boot DSH Desktop, communicate with the local Claude CLI, test real authentication, write the Desktop persistence backend, or validate native client slots. In particular, passing these tests **cannot** be reported as an end-to-end Desktop compatibility certification.
 
 The version-lock ensures repeatability, not coverage of an arbitrarily newer Host. Before claiming compatibility with a new Desktop release, update the development dependency graph and lockfile in a dedicated upgrade PR, run these tests and the full CI, then perform the manual acceptance cases below. Avoid silently drifting all DSH peers to latest on every CI run.
 
