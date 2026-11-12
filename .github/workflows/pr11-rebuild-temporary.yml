@@ -1,0 +1,38 @@
+# Temporary trusted-branch helper for PR-11; remove before merging.
+name: PR-11 rebuild lib (temporary)
+
+on:
+  push:
+    branches: [test/dsh-agent-model-host-compatibility]
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Save regenerated compiled output to the PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- lib/
+          if git diff --cached --quiet; then
+            echo "Generated lib is already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(build): resync compiled lib for Host contract fix"
+          git push origin HEAD:test/dsh-agent-model-host-compatibility
