@@ -127,14 +127,14 @@ describe('real DSH Session event / public model-control contract', () => {
 
   it('keeps a recorded Claude model when a Session is reconstructed', () => {
     const original = newSession('dsh-host-resume')
-    realModel(original, { provider: 'claude', model: 'default' })
+    sessionModel(original, { provider: 'claude', model: 'default' })
       .select({ provider: CLAUDE_CODE_PROVIDER, model: 'opus' })
 
     // Seed a second real Session from its recorded events. The model-control
     // adapter is structural: actual replay is provided by dsh-session, not
     // the Desktop persistence backend or live AgentModel driver.
     const replayed = Session.create(original.id, original.snapshotEvents())
-    const model = realModel(replayed, { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+    const model = sessionModel(replayed, { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
     const agent: TestAgent = { ctx: { preset: 'claude' }, session: replayed, model }
     expect(model.current()).toMatchObject({ provider: CLAUDE_CODE_PROVIDER, model: 'opus' })
     const before = countSelections(replayed)
@@ -145,7 +145,7 @@ describe('real DSH Session event / public model-control contract', () => {
 
   it('keeps non-Claude Agent selection untouched by a Claude preset creation listener', () => {
     const session = newSession('dsh-host-native')
-    const model = realModel(session, { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+    const model = sessionModel(session, { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
     const agent: TestAgent = { ctx: { preset: 'native' }, session, model }
     mountedRoute().created(agent)
     expect(model.current()).toMatchObject({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
@@ -179,9 +179,9 @@ describe('real DSH Session event / public model-control contract', () => {
     },
   )
 
-  it('honors configured override and records it with the real DSH projection', () => {
+  it('honors configured override and records it in the real DSH Session', () => {
     const session = newSession('dsh-host-configured')
-    const model = realModel(session, { provider: CLAUDE_CODE_PROVIDER, model: 'opus' })
+    const model = sessionModel(session, { provider: CLAUDE_CODE_PROVIDER, model: 'opus' })
     mountedRoute({ model: 'sonnet' }).created({ ctx: { preset: 'claude' }, session, model })
     expect(model.current()).toMatchObject({ provider: CLAUDE_CODE_PROVIDER, model: 'sonnet' })
     expect(countSelections(session)).toBe(1)
