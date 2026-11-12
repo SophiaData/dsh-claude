@@ -54,7 +54,7 @@ import { detectWindowsSystemProxy, withSystemProxy, type ProxyEnv } from './syst
 import { normalizePlanUsage, probePlanUsage, recordPlanUsage } from './plan-usage.ts'
 import { registerPlanUsageRoute } from './plan-usage-routes.ts'
 import { ClaudeHostJobs } from './host-jobs.ts'
-import { createPresetModelSync, type ModelSelection } from './preset-model-sync.ts'
+import { createPresetModelSync, publicModelControl, type ModelSelection } from './preset-model-sync.ts'
 import { readDefaultPermissionMode, readPermissionSelector, readRenderMode, readSupervisorLimitOverrides, readWorktreeBranchPrefix, registerClaudeGlobalSettingsRoute } from './global-settings.ts'
 
 // The steering contract is published for a plugin that wants to reach a running
@@ -441,6 +441,10 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       const sync = createPresetModelSync({
         currentSelection: sessionId => {
           const agent = agentOf(sessionId)
+          // On newer DSH, the public per-Agent model control is authoritative.
+          // Avoid coupling to the legacy projection shape and its pending field.
+          const selected = publicModelControl(agent)?.current()
+          if (selected !== undefined) return selected
           const projections = ctx.get('sessionProjections') as { stateOf(session: unknown, name: string): { pending: Selection | null } | undefined } | undefined
           const pending = agent === undefined ? undefined : projections?.stateOf(agent.session, 'modelSelection')?.pending
           return pending ?? defaults()?.currentSelection()
@@ -452,6 +456,18 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
           return session.requestHeader?.() === undefined
         },
         selectModel: async request => {
+          const control = publicModelControl(agentOf(request.sessionId))
+          if (control !== undefined) {
+            // DSH public API: durable Session selection without changing the
+            // deployment-wide default while synchronizing an Agent preset.
+            control.select({
+              provider: request.provider,
+              model: request.model,
+              ...(request.reasoningEffort === undefined ? {} : { reasoningEffort: request.reasoningEffort }),
+            })
+            return
+          }
+          // Legacy Host: retain its controller to keep model caches in sync.
           const controller = ctx.get('sessionController') as { selectModel(request: { sessionId: string } & Selection): Promise<unknown> } | undefined
           if (controller === undefined) throw new Error('the Host mounts no session controller')
           return controller.selectModel(request)
