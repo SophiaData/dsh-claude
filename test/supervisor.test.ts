@@ -277,6 +277,69 @@ describe('Claude supervisor', () => {
     await runtime.dispose()
   })
 
+  it('preserves native Claude Code settings, MCP, Skills, and Hooks in the SDK Query contract', async () => {
+    const transport = factory()
+    const owner = fakeAgent()
+    const runtime = supervisor(transport.create)
+    const catalog = runtime.supportedCommands(owner.agent)
+    await vi.waitFor(() => expect(transport.queries).toHaveLength(1))
+    const options = transport.queries[0]!.options
+
+    // User, project and local settings let the Claude CLI discover its native
+    // MCP servers, Skills, CLAUDE.md, and filesystem-configured Hooks.
+    expect(options.settingSources).toEqual(['user', 'project', 'local'])
+    expect(options.cwd).toBe('/workspace')
+    expect(options.tools).toEqual({ type: 'preset', preset: 'claude_code' })
+    expect(options.systemPrompt).toEqual({
+      type: 'preset', preset: 'claude_code', append: SYSTEM_PROMPT_APPEND,
+    })
+    // Plugin must not replace the user's MCP server list or constrain native
+    // tools to DSH's presentation-only mirrors.
+    expect(options.mcpServers).toBeUndefined()
+    expect(options.allowedTools).toBeUndefined()
+    expect(options.disallowedTools).toBeUndefined()
+    expect(options.hooks).toBeDefined()
+    expect(Object.keys(options.hooks ?? {}).sort()).toEqual(['PermissionDenied', 'PreToolUse'])
+    expect(options.hooks?.PreToolUse?.[0]?.hooks).toHaveLength(1)
+    expect(options.hooks?.PermissionDenied?.[0]?.hooks).toHaveLength(1)
+    expect(typeof options.canUseTool).toBe('function')
+
+    transport.queries[0]!.push(init())
+    await catalog
+    await runtime.dispose()
+  })
+
+  it('routes native MCP tool authorization through the active DSH turn and keeps it fail closed', async () => {
+    const transport = factory()
+    const owner = fakeAgent()
+    const runtime = supervisor(transport.create)
+    const output = await runtime.runTurn({ agent: owner.agent, prompt: 'inspect issues' })
+    const query = transport.queries[0]!
+    query.push(init())
+    const canUseTool = query.options.canUseTool
+    expect(canUseTool).toBeTypeOf('function')
+    const decision = await canUseTool!(
+      'mcp__github__list_issues',
+      { owner: 'SophiaData', repo: 'dsh-claude' },
+      { signal: new AbortController().signal, toolUseID: 'mcp-call-1', requestId: 'mcp-request-1' },
+    )
+    // The fake DSH approval service explicitly rejects. A native MCP tool
+    // must never bypass it simply because the tool is not a DSH mirror.
+    expect(decision).toMatchObject({
+      behavior: 'deny', toolUseID: 'mcp-call-1', decisionClassification: 'user_reject',
+    })
+    query.push(result())
+    await collect(output)
+    const decisions = (await projection(runtime)).activities.filter(activity => (
+      activity.kind === 'permission' && activity.toolUseId === 'mcp-call-1'
+    ))
+    expect(decisions).toEqual([
+      expect.objectContaining({ toolName: 'mcp__github__list_issues', phase: 'started' }),
+      expect.objectContaining({ toolName: 'mcp__github__list_issues', phase: 'denied' }),
+    ])
+    await runtime.dispose()
+  })
+
   it("counts a new process's first turn in full even when it outspends the previous process", async () => {
     // A drop in the counter is not the respawn signal: here the new process's
     // first reading is higher than the old process's whole run.
