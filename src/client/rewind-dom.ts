@@ -22,10 +22,15 @@ export interface ClaudeRewindSeat {
 /** Reuse an existing seat rather than minting a fresh element: a new node would
  *  change React's portal identity and restart every effect keyed on it. */
 function ensureSeat(row: HTMLElement): HTMLElement | undefined {
-  const actions = row.querySelector<HTMLElement>(ACTIONS_ROW)
-  if (actions === null) return undefined
-  const existing = actions.querySelector<HTMLElement>(`:scope > [${PORTAL_ATTRIBUTE}]`)
+  // A user message can contain arbitrary content/classes. Only a toolbar
+  // with a direct native action button is a valid portal destination; never
+  // inject into message content that happens to include "actions".
+  const actions = Array.from(row.querySelectorAll<HTMLElement>(ACTIONS_ROW))
+    .find(candidate => candidate.querySelector(':scope > button') !== null)
+  if (actions === undefined) return undefined
   const copy = actions.querySelector<HTMLElement>(':scope > button')
+  if (copy === null) return undefined
+  const existing = actions.querySelector<HTMLElement>(`:scope > [${PORTAL_ATTRIBUTE}]`)
   if (existing !== null) {
     if (copy !== null && existing.nextElementSibling !== copy) actions.insertBefore(existing, copy)
     return existing
@@ -33,17 +38,24 @@ function ensureSeat(row: HTMLElement): HTMLElement | undefined {
   const seat = document.createElement('span')
   seat.setAttribute(PORTAL_ATTRIBUTE, '')
   seat.style.display = 'inline-flex'
-  if (copy === null) actions.appendChild(seat)
-  else actions.insertBefore(seat, copy)
+  actions.insertBefore(seat, copy)
   return seat
 }
 
-/** Every visible user message row, paired with its portal host. */
-export function locateClaudeRewindSeats(root: ParentNode = document): ClaudeRewindSeat[] {
+/** Only rows from the active Claude session's own chat snapshot are eligible.
+ *  The overlay is mounted at shell scope, so a document-wide query alone can
+ *  also see other agents' messages when the Host keeps multiple views mounted.
+ *  Missing or renamed Host selectors fail open (no injection).
+ */
+export function locateClaudeRewindSeats(
+  eligibleKeys: ReadonlySet<string>,
+  root: ParentNode = document,
+): ClaudeRewindSeat[] {
+  if (eligibleKeys.size === 0) return []
   const seats: ClaudeRewindSeat[] = []
   for (const row of root.querySelectorAll<HTMLElement>(USER_ROW)) {
     const key = row.getAttribute('data-chat-flow-key')
-    if (key === null || key.length === 0) continue
+    if (key === null || !eligibleKeys.has(key)) continue
     const host = ensureSeat(row)
     if (host !== undefined) seats.push({ key, host })
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { Modal, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { isRewound, type ClaudeRewindRange } from '../rewind.ts'
@@ -147,6 +147,12 @@ export function ClaudeRewind({ t, currentSessionId, subscribeSessions, chatOf, p
     return { hiddenKeys: hidden, hiddenTurns: turns, targets: visible }
   }, [snapshot, ranges])
 
+  // The overlay can see the entire document, but the chat projection names
+  // exactly which user rows belong to the active Claude session. Keep this
+  // ref current without recreating the MutationObserver for every chat tick.
+  const eligibleRewindKeys = useRef<ReadonlySet<string>>(new Set())
+  eligibleRewindKeys.current = new Set(targets.keys())
+
   useEffect(() => {
     if (!armed || typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
       removeClaudeRewindSeats()
@@ -156,7 +162,7 @@ export function ClaudeRewind({ t, currentSessionId, subscribeSessions, chatOf, p
     let scheduled = false
     const reconcile = (): void => {
       scheduled = false
-      const found = locateClaudeRewindSeats()
+      const found = locateClaudeRewindSeats(eligibleRewindKeys.current)
       setSeats(current => (sameClaudeRewindSeats(current, found) ? current : found))
     }
     const schedule = (): void => {
