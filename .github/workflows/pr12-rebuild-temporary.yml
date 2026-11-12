@@ -1,0 +1,38 @@
+# Temporary trusted development-branch helper; delete before merging PR-12.
+name: PR-12 regenerate lib (temporary)
+
+on:
+  push:
+    branches: [fix/claude-host-chrome-dom-isolation]
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Commit generated lib on this branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- lib/
+          if git diff --cached --quiet; then
+            echo "No generated changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(build): regenerate lib for Host DOM isolation"
+          git push origin HEAD:fix/claude-host-chrome-dom-isolation
