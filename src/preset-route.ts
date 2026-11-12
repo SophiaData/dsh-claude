@@ -22,12 +22,10 @@ export function apply(ctx: Context, config: Config = {}): void {
   // Selecting in the Agent creation event is synchronous and happens before
   // its first model step. No request header may be rewritten after preparation.
   // Legacy Hosts without agent.model continue using the old request hook.
-  let hasPublicModelControl = false
   ctx.on('agent/created', ({ agent }) => {
     if (ctx.get('agentPresets')?.composedPreset(agent.ctx) !== 'claude') return undefined
     const control = publicModelControl(agent)
     if (control === undefined) return undefined
-    hasPublicModelControl = true
     const current = control.current()
     const selected = config.model
       ?? (current?.provider === CLAUDE_CODE_PROVIDER ? current.model : 'default')
@@ -40,9 +38,12 @@ export function apply(ctx: Context, config: Config = {}): void {
   // Compatibility only: older DSH versions let a preset rewrite the request
   // route. Newer versions reject this after step preparation; do not mutate
   // their fixed provider/model selection, even when a previous choice is stale.
-  ctx.on('agent/request', async (_payload, next) => {
+  ctx.on('agent/request', async ({ agent }, next) => {
     const upstream = await next()
-    if (hasPublicModelControl) return upstream
+    // A modern Agent's prepared route is immutable. Check THIS Agent, not a
+    // plugin-wide flag: a preceding modern Session must not disable legacy
+    // fallback for a different Agent or for a mixed-version Host.
+    if (publicModelControl(agent) !== undefined) return upstream
     const selected = config.model ?? upstream.model ?? 'default'
     const model = isForeignClaudeModelId(selected) ? 'default' : canonicalClaudeModelId(selected)
     return { ...upstream, provider: CLAUDE_CODE_PROVIDER, model }

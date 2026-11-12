@@ -47,19 +47,37 @@ describe('Claude preset route', () => {
     const captured = capture()
     const selected: Array<{ provider: string; model: string }> = []
     apply(captured.ctx)
-    captured.created()({
-      agent: {
-        ctx: {},
-        model: {
-          current: () => ({ provider: 'deepseek-official', model: 'deepseek-v4-pro' }),
-          select: (selection: { provider: string; model: string }) => { selected.push(selection) },
-        },
+    const agent = {
+      ctx: {},
+      model: {
+        current: () => ({ provider: 'deepseek-official', model: 'deepseek-v4-pro' }),
+        select: (selection: { provider: string; model: string }) => { selected.push(selection) },
       },
-    })
+    }
+    captured.created()({ agent })
     expect(selected).toEqual([{ provider: CLAUDE_CODE_PROVIDER, model: 'default' }])
     // Once the Host has agent.model, never rewrite its prepared request.
     const upstream = { provider: 'claude', model: 'default' }
-    expect(await captured.listener()({}, async () => upstream)).toBe(upstream)
+    expect(await captured.listener()({ agent }, async () => upstream)).toBe(upstream)
+  })
+
+  it('keeps the legacy fallback for another Agent after a modern Agent has been created', async () => {
+    const captured = capture()
+    apply(captured.ctx)
+    const modern = {
+      ctx: {},
+      model: { current: () => ({ provider: 'claude', model: 'opus' }), select: () => undefined },
+    }
+    captured.created()({ agent: modern })
+
+    const modernRequest = { provider: CLAUDE_CODE_PROVIDER, model: 'opus', reasoningEffort: 'high' }
+    expect(await captured.listener()({ agent: modern }, async () => modernRequest)).toBe(modernRequest)
+
+    // An older Agent without agent.model must not inherit a plugin-wide
+    // "modern" flag from another Session.
+    const legacyRequest = { provider: 'upstream', model: 'sonnet' }
+    expect(await captured.listener()({ agent: { ctx: {} } }, async () => legacyRequest))
+      .toEqual({ provider: CLAUDE_CODE_PROVIDER, model: 'sonnet' })
   })
 
   it('preserves an already selected Claude model on a modern Host', () => {
