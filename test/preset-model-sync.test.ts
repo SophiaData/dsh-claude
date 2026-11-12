@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createPresetModelSync, type ModelSelection, type PresetModelSyncDeps } from '../src/preset-model-sync.ts'
+import { createPresetModelSync, publicModelControl, type ModelSelection, type PresetModelSyncDeps } from '../src/preset-model-sync.ts'
 
 const deepseek: ModelSelection = { provider: 'deepseek-official', model: 'deepseek-v4-pro' }
 const opus: ModelSelection = { provider: 'claude', model: 'opus' }
@@ -17,6 +17,16 @@ function harness(current: ModelSelection | undefined, overrides: Partial<PresetM
   }
   return { state, deps, sync: createPresetModelSync(deps) }
 }
+
+describe('public Agent model capability', () => {
+  it('detects the public DSH current/select model contract without importing driver internals', () => {
+    const control = { current: vi.fn(() => opus), select: vi.fn() }
+    expect(publicModelControl({ model: control })).toBe(control)
+    expect(publicModelControl({ model: { current: () => opus } })).toBeUndefined()
+    expect(publicModelControl({ model: { select: () => undefined } })).toBeUndefined()
+    expect(publicModelControl(null)).toBeUndefined()
+  })
+})
 
 describe('preset model sync', () => {
   it('leaves a session already on its preset\'s side alone', async () => {

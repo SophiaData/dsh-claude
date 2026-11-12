@@ -18,6 +18,27 @@ export interface ModelSelection {
   readonly reasoningEffort?: string
 }
 
+/**
+ * Access the public per-Agent model-selection surface when provided by DSH.
+ *
+ * Older supported Hosts do not necessarily expose `agent.model` in their
+ * runtime/type graph. Keep this structural check in one place so the preset
+ * route and the Host-side model synchronizer agree on the capability.
+ */
+export interface PublicModelControl {
+  current(): ModelSelection | undefined
+  select(selection: ModelSelection): void
+}
+
+export function publicModelControl(agent: unknown): PublicModelControl | undefined {
+  if (agent === null || typeof agent !== 'object' || !('model' in agent)) return undefined
+  const candidate = agent.model
+  if (candidate === null || typeof candidate !== 'object') return undefined
+  if (!('current' in candidate) || typeof candidate.current !== 'function'
+    || !('select' in candidate) || typeof candidate.select !== 'function') return undefined
+  return candidate as PublicModelControl
+}
+
 export interface PresetModelSyncDeps {
   /** The session's current selection: its pending pick, else the profile default. */
   currentSelection(sessionId: string): ModelSelection | undefined

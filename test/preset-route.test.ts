@@ -6,15 +6,25 @@ import { recordClaudeModels, resetClaudeModels } from '../src/model-catalog.ts'
 
 type RequestListener = (payload: unknown, next: () => Promise<{ provider?: string; model?: string }>) => Promise<{ provider?: string; model?: string }>
 
-function capture(jobs?: { attachController(name: string): () => void }): { ctx: Context; listener: () => RequestListener; registered: () => readonly string[]; provided: () => { name: string; value: unknown } | undefined } {
+type CreatedListener = (payload: { agent: unknown }) => void
+
+function capture(jobs?: { attachController(name: string): () => void }): { ctx: Context; listener: () => RequestListener; created: () => CreatedListener; registered: () => readonly string[]; provided: () => { name: string; value: unknown } | undefined } {
   let listener: RequestListener = () => { throw new Error('unregistered') }
+  let created: CreatedListener = () => { throw new Error('unregistered') }
   const names: string[] = []
   let service: { name: string; value: unknown } | undefined
   const ctx = {
-    on: (event: string, handler: RequestListener) => {
-      expect(event).toBe('agent/request')
-      listener = handler
+    on: (event: string, handler: RequestListener | CreatedListener) => {
+      if (event === 'agent/created') {
+        created = handler as CreatedListener
+      } else {
+        expect(event).toBe('agent/request')
+        listener = handler as RequestListener
+      }
     },
+    get: (name: string) => name === 'agentPresets'
+      ? { composedPreset: () => 'claude' }
+      : undefined,
     effect: (setup: () => unknown) => { setup() },
     // Optional-service inject: the callback runs only when the Host has it.
     inject: (names: readonly string[], setup: (scoped: unknown) => void) => {
@@ -29,10 +39,61 @@ function capture(jobs?: { attachController(name: string): () => void }): { ctx: 
       },
     },
   } as unknown as Context
-  return { ctx, listener: () => listener, registered: () => names, provided: () => service }
+  return { ctx, listener: () => listener, created: () => created, registered: () => names, provided: () => service }
 }
 
 describe('Claude preset route', () => {
+  it('sets the Claude model before step preparation on Hosts exposing agent.model', async () => {
+    const captured = capture()
+    const selected: Array<{ provider: string; model: string }> = []
+    apply(captured.ctx)
+    captured.created()({
+      agent: {
+        ctx: {},
+        model: {
+          current: () => ({ provider: 'deepseek-official', model: 'deepseek-v4-pro' }),
+          select: (selection: { provider: string; model: string }) => { selected.push(selection) },
+        },
+      },
+    })
+    expect(selected).toEqual([{ provider: CLAUDE_CODE_PROVIDER, model: 'default' }])
+    // Once the Host has agent.model, never rewrite its prepared request.
+    const upstream = { provider: 'claude', model: 'default' }
+    expect(await captured.listener()({}, async () => upstream)).toBe(upstream)
+  })
+
+  it('preserves an already selected Claude model on a modern Host', () => {
+    const captured = capture()
+    const selected: unknown[] = []
+    apply(captured.ctx)
+    captured.created()({
+      agent: {
+        ctx: {},
+        model: {
+          current: () => ({ provider: 'claude', model: 'opus' }),
+          select: (selection: unknown) => { selected.push(selection) },
+        },
+      },
+    })
+    expect(selected).toEqual([])
+  })
+
+  it('honors an explicit Claude model override through the public model control', () => {
+    const captured = capture()
+    const selected: unknown[] = []
+    apply(captured.ctx, { model: 'sonnet' })
+    captured.created()({
+      agent: {
+        ctx: {},
+        model: {
+          current: () => ({ provider: 'claude', model: 'opus' }),
+          select: (selection: unknown) => { selected.push(selection) },
+        },
+      },
+    })
+    expect(selected).toEqual([{ provider: 'claude', model: 'sonnet' }])
+  })
+
   it('preserves the upstream selected model alias', async () => {
     const captured = capture()
     apply(captured.ctx)
