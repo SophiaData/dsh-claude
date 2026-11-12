@@ -28,9 +28,8 @@ interface ModelControl {
 /** The locked rc.5 package does not export a runtime AgentModel constructor,
  * even though newer DSH source does. Use the real DSH Session event log for
  * durable selection tests, and a minimal public-model contract adapter. A
- * separate canary exercises the real AgentModel when the installed package
- * eventually exports it. This distinction is explicit to prevent false
- * claims of full Host driver integration.
+ * conditional canary exercises the real AgentModel when the installed
+ * package exports it. This prevents false claims of full Host integration.
  */
 function sessionModel(session: Session, fallback: Selection): ModelControl {
   const recorded = (): Selection | undefined => {
@@ -152,6 +151,33 @@ describe('real DSH Session event / public model-control contract', () => {
     expect(model.current()).toMatchObject({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
     expect(countSelections(session)).toBe(0)
   })
+
+  it.skipIf(typeof Reflect.get(dshAgent, 'AgentModel') !== 'function'
+    || typeof Reflect.get(dshAgent, 'modelSelectionProjectionDefinition') !== 'object')(
+    'exercises the native AgentModel constructor when this Host package exposes it', () => {
+      const AgentModelCtor = Reflect.get(dshAgent, 'AgentModel') as new (
+        reader: () => unknown,
+        session: Session,
+        options: Selection,
+      ) => ModelControl
+      const definition = Reflect.get(dshAgent, 'modelSelectionProjectionDefinition') as {
+        init(): unknown
+        apply(state: unknown, event: unknown): unknown
+      }
+      const session = newSession('dsh-host-agent-model-native-canary')
+      const model = new AgentModelCtor(
+        () => session.snapshotEvents().reduce(
+          (state, event) => definition.apply(state, event), definition.init(),
+        ),
+        session,
+        { provider: 'deepseek-official', model: 'deepseek-v4-pro' },
+      )
+      expect(model.current()).toMatchObject({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+      model.select({ provider: CLAUDE_CODE_PROVIDER, model: 'sonnet' })
+      expect(model.current()).toMatchObject({ provider: CLAUDE_CODE_PROVIDER, model: 'sonnet' })
+      expect(countSelections(session)).toBe(1)
+    },
+  )
 
   it('honors configured override and records it with the real DSH projection', () => {
     const session = newSession('dsh-host-configured')
