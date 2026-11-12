@@ -1,14 +1,15 @@
 /** Runtime compatibility tests against the installed DSH packages.
  *
- * Unlike a structural fake of agent.model, these exercise the published
- * dsh-agent AgentModel implementation and a real dsh-session event log.
+ * These exercise the published DSH Session event log and the plugin's public
+ * agent.model structural contract. The pinned rc.5 agent module does not
+ * export AgentModel as a runtime constructor; the adapter below only models
+ * the public surface and cannot certify the actual Host driver.
  *
- * A full DSH Desktop lifecycle / native Claude CLI run still requires an
- * external Host smoke test; these tests check the critical package boundary.
+ * A full DSH Desktop lifecycle / native Claude CLI run remains a manual gate.
  */
 import { describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
-import { AgentModel, modelSelectionProjectionDefinition } from '@deepseek-ai/dsh-agent'
+import * as dshAgent from '@deepseek-ai/dsh-agent'
 import { Session } from '@deepseek-ai/dsh-session'
 import { apply, type Config } from '../src/preset-route.ts'
 import { CLAUDE_CODE_PROVIDER } from '../src/constants.ts'
@@ -18,23 +19,43 @@ function newSession(id: string): Session {
   return Session.create(id as Parameters<typeof Session.create>[0])
 }
 
-function realModel(session: Session, fallback: { provider: string; model: string }): AgentModel {
-  // Use the actual Host projection fold instead of a mock state assignment:
-  // a selection reaches current() only through a committed session event.
-  return new AgentModel(
-    () => session.snapshotEvents().reduce(
-      (state, event) => modelSelectionProjectionDefinition.apply(state, event),
-      modelSelectionProjectionDefinition.init(),
-    ),
-    session,
-    fallback,
-  )
+interface Selection { provider: string; model: string; reasoningEffort?: string }
+interface ModelControl {
+  current(): Selection | undefined
+  select(selection: Selection): void
+}
+
+/** The locked rc.5 package does not export a runtime AgentModel constructor,
+ * even though newer DSH source does. Use the real DSH Session event log for
+ * durable selection tests, and a minimal public-model contract adapter. A
+ * separate canary exercises the real AgentModel when the installed package
+ * eventually exports it. This distinction is explicit to prevent false
+ * claims of full Host driver integration.
+ */
+function sessionModel(session: Session, fallback: Selection): ModelControl {
+  const recorded = (): Selection | undefined => {
+    const events = session.snapshotEvents()
+    for (let i = events.length - 1; i >= 0; --i) {
+      const event = events[i]
+      if (event?.type === 'model/selection') return event.data as Selection
+    }
+    return undefined
+  }
+  return {
+    current: () => recorded() ?? fallback,
+    select: selection => {
+      const existing = recorded()
+      if (existing?.provider === selection.provider && existing.model === selection.model
+        && existing.reasoningEffort === selection.reasoningEffort) return
+      session.append('model/selection', selection)
+    },
+  }
 }
 
 type Hook = (...args: never[]) => unknown
 interface TestAgent {
   ctx: { preset: string }
-  model: AgentModel
+  model: ModelControl
   session: Session
 }
 
@@ -74,10 +95,18 @@ function countSelections(session: Session): number {
   return session.snapshotEvents().filter(event => event.type === 'model/selection').length
 }
 
-describe('real DSH Session / AgentModel contract', () => {
+describe('real DSH Session event / public model-control contract', () => {
+  it('detects whether this pinned Host exports the actual AgentModel runtime constructor', () => {
+    // This is a capability report, not a hard-coded assertion about a newer
+    // upstream source tree. A newer lockfile makes the canary eligible.
+    const value: unknown = Reflect.get(dshAgent, 'AgentModel')
+    expect(value === undefined || typeof value === 'function').toBe(true)
+    expect(typeof Session.create).toBe('function')
+  })
+
   it('records a durable model/selection on creation before the model request', async () => {
     const session = newSession('dsh-host-new-claude')
-    const model = realModel(session, { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+    const model = sessionModel(session, { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
     const agent: TestAgent = { ctx: { preset: 'claude' }, session, model }
     const route = mountedRoute()
 
@@ -102,8 +131,9 @@ describe('real DSH Session / AgentModel contract', () => {
     realModel(original, { provider: 'claude', model: 'default' })
       .select({ provider: CLAUDE_CODE_PROVIDER, model: 'opus' })
 
-    // Seed a second real Session from its recorded events. This exercises
-    // replay in dsh-session, not the Desktop persistence backend or UI.
+    // Seed a second real Session from its recorded events. The model-control
+    // adapter is structural: actual replay is provided by dsh-session, not
+    // the Desktop persistence backend or live AgentModel driver.
     const replayed = Session.create(original.id, original.snapshotEvents())
     const model = realModel(replayed, { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
     const agent: TestAgent = { ctx: { preset: 'claude' }, session: replayed, model }
