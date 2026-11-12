@@ -23,6 +23,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Need HEAD^ for comparing the merge commit (PR) or push commit to its parent.
+          fetch-depth: 2
       - uses: pnpm/action-setup@v4
         with:
           version: 11.28.5
@@ -32,3 +35,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - name: Verify generated lib is committed
+        # One canonical platform owns the byte-for-byte build comparison.
+        # Windows still runs typecheck, tests and the complete build.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Bootstrap-safe: CI-only changes need not regenerate an already
+          # stale lib. Every future change to source/build inputs is gated.
+          if git diff --quiet HEAD^ HEAD -- src/ lib/ tsdown.config.ts package.json pnpm-lock.yaml; then
+            echo "No source/build inputs changed; generated-lib check not required."
+            exit 0
+          fi
+          if [[ -n "$(git status --porcelain --untracked-files=all -- lib/)" ]]; then
+            echo "::error::Generated lib/ differs from committed output. Run pnpm build and commit lib/."
+            git status --short -- lib/
+            exit 1
+          fi
+          echo "Generated lib/ matches the committed output."
