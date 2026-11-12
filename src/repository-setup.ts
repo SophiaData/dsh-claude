@@ -180,7 +180,12 @@ export function comparablePath(value: string): string {
 }
 
 function pathExists(value: string): Promise<boolean> {
-  return stat(value).then(() => true, () => false)
+  return stat(value).then(() => true, (error: unknown) => {
+    // Permission, I/O and transient filesystem errors are not proof that a
+    // checkout has disappeared. Fail closed instead of pruning its Git state.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw error
+  })
 }
 
 function lease(value: unknown): WorktreeLease | undefined {
