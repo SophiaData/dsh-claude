@@ -15,14 +15,18 @@ import { permissionSelectClass as PERMISSION_SELECT_CLASS } from './styles.ts'
 /** The `Session log` capsule is contributed by
  *  `@deepseek-ai/dsh-session-log-export` into
  *  `conversation.session.header.utilities`. Shadowing that slot entry would
- *  also take its download-progress dialog down with it, so the capsule is
- *  hidden with CSS instead (Host 0.1.5 turned the capsule into an ellipsis
- *  more-actions menu whose only item is the download): the controller, its dialog, and the
- *  `/export` slash command all keep working.
+ *  also remove its progress dialog, so CSS only hides the trigger.
  *
- *  The selector matches the CSS Module local name rather than the emitted
- *  class, because only the build-hash prefix changes across Host releases. */
-const SESSION_LOG_CSS = 'button[class*="sessionLogButton"],button[class*="moreButton"][aria-haspopup="menu"]{display:none}'
+ *  IMPORTANT: this stylesheet is mounted once for the whole Desktop, not per
+ *  session. A global `button[class*="moreButton"]` selector also hides the
+ *  export/actions menu in non-Claude sessions. Scope BOTH Host variants to
+ *  the same Claude-owned header marker used by HEADER_TABS_CSS. The Host's
+ *  CSS Module local-name fragments stay a best-effort fallback for rebuilds. */
+const CLAUDE_SESSION_HEADER = 'header:has(.dsh-claude-header-diff)'
+const SESSION_LOG_CSS = [
+  `${CLAUDE_SESSION_HEADER} button[class*="sessionLogButton"]{display:none}`,
+  `${CLAUDE_SESSION_HEADER} button[class*="moreButton"][aria-haspopup="menu"]{display:none}`,
+].join('')
 
 /** A Claude Session has exactly one view, so its header tab strip is a row of
  *  chrome with nothing to choose between. Hiding it shortens the header, and
