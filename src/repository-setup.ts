@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
 import { basename, isAbsolute, join, resolve } from 'node:path'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import type { SubprocessHandle, SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
@@ -378,17 +378,14 @@ export class RepositorySetupService {
     })
   }
 
-  /** Reconcile leases against the set of directories still referenced by a
-   *  workspace. Deleting a workspace is the user saying they are done with it,
-   *  so an unreferenced worktree goes even with uncommitted changes; its
-   *  sessions are archived first, through `archiveSessions`, or the Host
-   *  rebuilds the deleted workspace from their headers on the next boot.
-   *  Fresh leases are retained for a grace period so a worktree created
-   *  moments ago cannot be swept before its workspace registration lands.
+  /** Reconcile leases against live Workspace paths, without discarding work.
+   *  A deleted Workspace is not consent to erase uncommitted/unpushed Git work.
+   *  Only a clean checkout with no local-only commits is auto-removed. Any
+   *  failed Git check or session archival leaves its lease for a later sweep.
+   *  Fresh leases retain a grace window for Workspace registration.
    *
-   *  Every command runs from the repository root, never from the worktree
-   *  being removed: spawning in a directory that is already gone throws
-   *  ENOENT, which used to strand the lease forever. */
+   *  Git commands after worktree removal run from the main checkout, never
+   *  from a path Git has removed. */
   cleanupOrphans(
     activePaths: readonly string[],
     archiveSessions?: (worktreePath: string) => Promise<void>,
@@ -407,27 +404,49 @@ export class RepositorySetupService {
           continue
         }
         try {
-          // Best effort: a Host that cannot archive must not strand the lease,
-          // and the worktree removal below is what the user asked for.
-          await archiveSessions?.(item.path).catch(() => undefined)
-          if (await pathExists(item.path)) {
-            const removed = await this.#run(git, ['worktree', 'remove', '--force', '--', item.path], item.root)
-            if (removed.exitCode !== 0) {
+          const exists = await pathExists(item.path)
+          // The branch can hold the only copy of locally committed work even
+          // after the checkout directory was removed outside this plugin.
+          if (exists) {
+            if (!await this.#canRemoveOrphan(git, item)) {
               retained.push(item)
               continue
             }
           } else {
-            // The directory is already gone; let Git forget the stale
-            // worktree registration before the lease follows it.
-            await this.#run(git, ['worktree', 'prune'], item.root).catch(() => undefined)
+            await this.#requirePushed(git, item.root, item.branch)
           }
+          // A bound lease without a session archiver is not safe to remove.
+          // An archiver that rejects must likewise block the Git cleanup.
+          if (item.sessionId !== undefined && archiveSessions === undefined) {
+            retained.push(item)
+            continue
+          }
+          await archiveSessions?.(item.path)
+          if (exists) {
+            // No --force: Git must independently refuse dirty worktrees if
+            // files appear between the status check and the remove command.
+            const removed = await this.#run(git, ['worktree', 'remove', '--', item.path], item.root)
+            if (removed.exitCode !== 0 || removed.lossy) {
+              retained.push(item)
+              continue
+            }
+          } else {
+            const pruned = await this.#run(git, ['worktree', 'prune'], item.root)
+            if (pruned.exitCode !== 0 || pruned.lossy) {
+              retained.push(item)
+              continue
+            }
+          }
+          // Only plugin-generated branches may be removed. Its commits were
+          // checked against all remotes above; user-named branches stay.
           if (item.pluginGeneratedBranch) {
             await this.#run(git, ['branch', '-D', '--', item.branch], item.root).catch(() => undefined)
           }
           changed = true
         } catch {
-          if (await pathExists(item.root)) retained.push(item)
-          else changed = true // the repository itself is gone; the lease is dead weight
+          // Fail closed: a busy repository, missing remote, or archive failure
+          // must never convert an orphan into silent deletion.
+          retained.push(item)
         }
       }
       if (changed) await this.#writeLeases(retained)
@@ -435,11 +454,10 @@ export class RepositorySetupService {
     })
   }
 
-  /** Remove leftover directories under the plugin's own worktree root that no
-   *  lease and no workspace claims and that are no longer checkouts (an IDE
-   *  folder outliving its worktree); otherwise nothing would ever sweep them.
-   *  The grace period covers the gap between `worktree add` and the lease
-   *  write, so a worktree being created right now is never taken. */
+  /** Remove only EMPTY, unclaimed legacy directories.
+   *  Without a lease the plugin cannot prove who owns the files. Even a
+   *  .git-less directory may contain a user's IDE settings or new source.
+   *  Never recursively delete it; rmdir itself enforces emptiness. */
   async #removeUnleasedDirectories(
     retained: readonly WorktreeLease[],
     active: ReadonlySet<string>,
@@ -469,11 +487,12 @@ export class RepositorySetupService {
         // next to the session's, with its pull request and maybe unpushed work.
         // ponytail: a lease lost to a crash now leaks its worktree; `git worktree list` still names it.
         if (await pathExists(join(path, '.git'))) continue
-        // A lost lease is still the user's deleted workspace: its sessions
-        // have to be archived here too, or the Host rebuilds the workspace
-        // from their headers on the next boot.
-        await archiveSessions?.(path).catch(() => undefined)
-        await rm(path, { recursive: true, force: true })
+        // Do not infer permission to erase unknown files from a missing
+        // lease. A nonempty directory requires explicit manual review.
+        if ((await readdir(path)).length > 0) continue
+        await archiveSessions?.(path)
+        // Fails if something was written between readdir and removal.
+        await rmdir(path)
       } catch {
         // A directory that vanished under us, or one we may not remove; the
         // next pass sees it again.
@@ -672,9 +691,22 @@ export class RepositorySetupService {
   }
 
   /** Refuse to delete a branch holding commits no remote has. */
+  /** A lease is eligible for background removal only when the same branch
+   *  is still checked out and Git has accounted for every file and commit. */
+  async #canRemoveOrphan(git: string, item: WorktreeLease): Promise<boolean> {
+    const status = await this.#run(git, ['status', '--porcelain=v2', '--branch', '--untracked-files=all'], item.path)
+    if (status.exitCode !== 0 || status.lossy) return false
+    const lines = status.stdout.split(/\r?\n/u).filter(Boolean)
+    const current = lines.find(line => line.startsWith('# branch.head '))?.slice('# branch.head '.length)
+    if (current !== item.branch || lines.some(line => !line.startsWith('# '))) return false
+    await this.#requirePushed(git, item.root, item.branch)
+    return true
+  }
+
   async #requirePushed(git: string, root: string, branch: string): Promise<void> {
     const count = await this.#run(git, ['rev-list', '--count', branch, '--not', '--remotes'], root)
-    if (count.exitCode !== 0 || Number(count.stdout.trim()) > 0) {
+    const value = count.stdout.trim()
+    if (count.exitCode !== 0 || count.lossy || !/^\d+$/u.test(value) || Number(value) > 0) {
       throw new RepositorySetupError('unpushed-commits', 'The branch has commits that are not on any remote; push or discard them first.')
     }
   }
