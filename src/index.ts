@@ -544,12 +544,16 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       const persistence = sweepCtx.get('sessionPersistence') as {
         list(): Promise<readonly { readonly id?: unknown; readonly cwd?: unknown }[]>
       } | undefined
-      if (persistence === undefined) return
+      // If Session headers cannot be enumerated, we cannot prove that the
+      // worktree's conversations were archived. Keep its files and lease.
+      if (persistence === undefined) throw new Error('session persistence unavailable for worktree cleanup')
       const target = comparablePath(worktreePath)
       for (const header of await persistence.list()) {
         if (typeof header.id !== 'string' || typeof header.cwd !== 'string') continue
         if (comparablePath(header.cwd) !== target) continue
-        await sweepCtx.workspaceRegistry.archiveSession(header.id).catch(() => undefined)
+        // Archive failures must stop removal rather than being swallowed:
+        // otherwise the Host may revive a deleted workspace on restart.
+        await sweepCtx.workspaceRegistry.archiveSession(header.id)
       }
     }
     const sweep = (): void => {

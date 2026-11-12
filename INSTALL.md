@@ -117,9 +117,11 @@ own working directory (`process.cwd()`), not a borrowed session process.
 7. Restart Desktop and continue the same conversation to verify resume.
 8. Open diff, plan, and tasks tabs in the right sidebar; exercise
    fullscreen and close. Check command completion, prompt controls, and queue UI.
-9. In a disposable repository, verify worktree creation and naming. Preserve
-   needed changes before deleting its workspace: managed-worktree reconciliation
-   can remove dirty files. Merged-branch cleanup is a separate guarded action.
+9. In a disposable repository, verify worktree creation and naming.
+   Delete a Workspace containing uncommitted changes or unpushed commits and
+   confirm that background reconciliation retains its Worktree and lease.
+   Empty, clean, pushed Worktrees can be reclaimed after their sessions are
+   archived. Merged-branch cleanup remains a separate guarded action.
 10. Read the new Host log for `dsh-claude client [boot-check]`,
     `[slot-entry-crashed]`, and plugin refresh failures.
 
