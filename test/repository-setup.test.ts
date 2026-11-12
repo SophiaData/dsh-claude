@@ -148,19 +148,15 @@ describe('repository setup service', () => {
     await expect(occupied.setup(root, 'feature/a', false)).rejects.toMatchObject<Partial<RepositorySetupError>>({ code: 'branch-occupied' })
   })
 
-  it('creates, binds, and removes a clean plugin-owned worktree and its generated branch', async () => {
+  it('creates, binds, and safely removes a clean, pushed plugin worktree', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
-    const fake = runtime([
+    const replies = [
       { stdout: `${root}\n` },
       { stdout: '# branch.head main\n' },
       { stdout: 'main\n' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-    ])
+      { stdout: '' }, { stdout: '' }, { stdout: '' }, { stdout: '' },
+    ]
+    const fake = runtime(replies)
     const service = new RepositorySetupService(fake, { leasePath, worktreeRoot, cleanupGraceMs: 0 })
     const result = await service.setup(root, 'main', true)
     expect(result).toMatchObject({ mode: 'worktree', root, branch: expect.stringMatching(/^claude\/main-/), leaseId: expect.any(String) })
@@ -168,11 +164,19 @@ describe('repository setup service', () => {
     await mkdir(result.path, { recursive: true })
     await service.bindLease(result.leaseId ?? '', 'session-1')
     expect(JSON.parse(await readFile(leasePath, 'utf8')).leases[0]).toMatchObject({
-      path: result.path,
-      sessionId: 'session-1',
-      pluginGeneratedBranch: true,
+      path: result.path, sessionId: 'session-1', pluginGeneratedBranch: true,
     })
-    await service.cleanupOrphans([])
+
+    // Git confirms the exact checked-out branch is clean and has no
+    // local-only commits. Archival must be available for a bound session.
+    replies.push(
+      { stdout: `# branch.head ${result.branch}\n` },
+      { stdout: '0\n' }, { stdout: '' }, { stdout: '' },
+    )
+    const archive = vi.fn(async () => undefined)
+    await service.cleanupOrphans([], archive)
+
+    expect(archive).toHaveBeenCalledWith(result.path)
     expect(JSON.parse(await readFile(leasePath, 'utf8')).leases).toEqual([])
     expect(fake.spawn.mock.calls[4]?.[0].argv).toEqual([
       '/bin/git', '-c', 'credential.interactive=never', 'fetch', '--all', '--prune',
@@ -180,17 +184,14 @@ describe('repository setup service', () => {
     expect(fake.spawn.mock.calls[5]?.[0].argv).toEqual([
       '/bin/git', 'for-each-ref', '--format=%(upstream:short)', 'refs/heads/main',
     ])
-    const worktreeAdd = fake.spawn.mock.calls[6]?.[0].argv
-    expect(worktreeAdd?.slice(0, 5)).toEqual(['/bin/git', 'worktree', 'add', '--no-track', '-b'])
-    // No upstream reported, so the local branch stays the base.
-    expect(worktreeAdd?.at(-1)).toBe('refs/heads/main')
-    expect(fake.spawn.mock.calls[7]?.[0].argv).toEqual(['/bin/git', 'worktree', 'remove', '--force', '--', result.path])
-    expect(fake.spawn.mock.calls[8]?.[0].argv).toEqual(['/bin/git', 'branch', '-D', '--', result.branch])
+    const argv = fake.spawn.mock.calls.map(call => call[0].argv)
+    expect(argv[6]?.slice(0, 5)).toEqual(['/bin/git', 'worktree', 'add', '--no-track', '-b'])
+    expect(argv[6]?.at(-1)).toBe('refs/heads/main')
+    expect(argv[7]).toEqual(['/bin/git', 'status', '--porcelain=v2', '--branch', '--untracked-files=all'])
+    expect(argv[8]).toEqual(['/bin/git', 'rev-list', '--count', result.branch, '--not', '--remotes'])
+    expect(argv[9]).toEqual(['/bin/git', 'worktree', 'remove', '--', result.path])
+    expect(argv[10]).toEqual(['/bin/git', 'branch', '-D', '--', result.branch])
   })
-
-  // The Host groups a Session only under a Workspace whose path equals its cwd,
-  // so where the worktree lives is what lets the sidebar's Workspace tree nest
-  // it under its repository.
   it('creates worktrees under the main checkout and keeps them out of its status', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
     const exclude = join(root, '.git', 'info', 'exclude')
@@ -373,35 +374,31 @@ describe('repository setup service', () => {
       })
   })
 
-  it('preserves an explicitly named branch after removing its Worktree', async () => {
+  it('preserves an explicitly named branch after safely removing its clean Worktree', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
-    const fake = runtime([
-      { stdout: `${root}\n` },
-      { stdout: '# branch.head main\n' },
-      { stdout: 'main\n' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-    ])
+    const replies = [
+      { stdout: `${root}\n` }, { stdout: '# branch.head main\n' },
+      { stdout: 'main\n' }, { stdout: '' }, { stdout: '' },
+      { stdout: '' }, { stdout: '' },
+    ]
+    const fake = runtime(replies)
     const service = new RepositorySetupService(fake, { leasePath, worktreeRoot, cleanupGraceMs: 0 })
     const result = await service.setup(root, 'main', true, 'feature/user-owned')
     await mkdir(result.path, { recursive: true })
     await service.bindLease(result.leaseId ?? '', 'session-explicit')
     expect(JSON.parse(await readFile(leasePath, 'utf8')).leases[0]).toMatchObject({
-      branch: 'feature/user-owned',
-      pluginGeneratedBranch: false,
+      branch: 'feature/user-owned', pluginGeneratedBranch: false,
     })
-
-    await service.cleanupOrphans([])
-
+    replies.push(
+      { stdout: '# branch.head feature/user-owned\n' }, { stdout: '0\n' }, { stdout: '' },
+    )
+    await service.cleanupOrphans([], async () => undefined)
     expect(JSON.parse(await readFile(leasePath, 'utf8')).leases).toEqual([])
-    expect(fake.spawn.mock.calls[7]?.[0].argv).toEqual(['/bin/git', 'worktree', 'remove', '--force', '--', result.path])
-    // A branch the user named is theirs; only generated ones are deleted.
-    expect(fake.spawn.mock.calls).toHaveLength(8)
+    expect(fake.spawn.mock.calls[7]?.[0].argv).toEqual(['/bin/git', 'status', '--porcelain=v2', '--branch', '--untracked-files=all'])
+    expect(fake.spawn.mock.calls[9]?.[0].argv).toEqual(['/bin/git', 'worktree', 'remove', '--', result.path])
+    // An explicitly named branch belongs to the user: never delete it.
+    expect(fake.spawn.mock.calls).toHaveLength(10)
   })
-
   it('creates a Worktree directly from a remote-tracking ref', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
     const fake = runtime([
@@ -516,79 +513,69 @@ describe('repository setup service', () => {
 
   // Deleting the workspace is the user saying they are done with it, so the
   // sweep no longer inspects the tree and no longer keeps a dirty worktree.
-  it('removes a worktree with uncommitted changes once its workspace is gone', async () => {
+  it('keeps a dirty worktree and its lease when the Workspace is deleted', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
-    const fake = runtime([
-      { stdout: `${root}\n` },
-      { stdout: '# branch.head main\n' },
-      { stdout: 'main\n' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-    ])
+    const replies = [
+      { stdout: `${root}\n` }, { stdout: '# branch.head main\n' },
+      { stdout: 'main\n' }, { stdout: '' }, { stdout: '' },
+      { stdout: '' }, { stdout: '' },
+    ]
+    const fake = runtime(replies)
     const service = new RepositorySetupService(fake, { leasePath, worktreeRoot, cleanupGraceMs: 0 })
     const result = await service.setup(root, 'main', true)
     await mkdir(result.path, { recursive: true })
     await writeFile(join(result.path, 'local.txt'), 'uncommitted\n')
     await service.bindLease(result.leaseId ?? '', 'session-2')
-
-    await service.cleanupOrphans([])
-
-    expect(JSON.parse(await readFile(leasePath, 'utf8')).leases).toEqual([])
-    const cleanup = fake.spawn.mock.calls.slice(7).map(call => call[0].argv)
-    expect(cleanup).toContainEqual(['/bin/git', 'worktree', 'remove', '--force', '--', result.path])
-    // The tree is never inspected: nothing decides to keep it.
-    expect(cleanup.flat()).not.toContain('status')
+    replies.push({ stdout: `# branch.head ${result.branch}\n? local.txt\n` })
+    const archive = vi.fn(async () => undefined)
+    await service.cleanupOrphans([], archive)
+    expect(JSON.parse(await readFile(leasePath, 'utf8')).leases).toHaveLength(1)
+    expect(existsSync(join(result.path, 'local.txt'))).toBe(true)
+    expect(archive).not.toHaveBeenCalled()
+    const commands = fake.spawn.mock.calls.slice(7).map(call => call[0].argv)
+    expect(commands).toEqual([['/bin/git', 'status', '--porcelain=v2', '--branch', '--untracked-files=all']])
+    expect(commands.flat()).not.toContain('--force')
   })
-
-  it('archives every session in the worktree before removing it', async () => {
+  it('archives every session after validating worktree safety but before removing it', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
-    const fake = runtime([
-      { stdout: `${root}\n` },
-      { stdout: '# branch.head main\n' },
-      { stdout: 'main\n' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-    ])
+    const replies = [
+      { stdout: `${root}\n` }, { stdout: '# branch.head main\n' },
+      { stdout: 'main\n' }, { stdout: '' }, { stdout: '' },
+      { stdout: '' }, { stdout: '' },
+    ]
+    const fake = runtime(replies)
     const service = new RepositorySetupService(fake, { leasePath, worktreeRoot, cleanupGraceMs: 0 })
     const result = await service.setup(root, 'main', true)
     await mkdir(result.path, { recursive: true })
+    replies.push(
+      { stdout: `# branch.head ${result.branch}\n` },
+      { stdout: '0\n' }, { stdout: '' }, { stdout: '' },
+    )
     const removedAtArchive: string[][][] = []
     const archive = vi.fn(async (path: string) => {
       removedAtArchive.push(fake.spawn.mock.calls.map(call => call[0].argv).filter(argv => argv.includes('remove')))
       expect(path).toBe(result.path)
     })
-
     await service.cleanupOrphans([], archive)
-
     expect(archive).toHaveBeenCalledWith(result.path)
-    // The Host rebuilds a deleted workspace from session headers, so archiving
-    // has to land before the directory does.
     expect(removedAtArchive[0]).toEqual([])
     expect(JSON.parse(await readFile(leasePath, 'utf8')).leases).toEqual([])
   })
-
-  it('sweeps a worktree directory no lease and no workspace claims', async () => {
+  it('removes only empty unleased directories and preserves unknown files', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
     const stranded = join(worktreeRoot, 'premier-store-os-20260828T085557Z-10bc6d37')
     const claimed = join(worktreeRoot, 'still-a-workspace')
+    const empty = join(worktreeRoot, 'empty-stale-directory')
     await mkdir(join(stranded, '.idea'), { recursive: true })
     await mkdir(claimed, { recursive: true })
-
+    await mkdir(empty, { recursive: true })
     await new RepositorySetupService(runtime([]), { leasePath, worktreeRoot, cleanupGraceMs: 0 })
       .cleanupOrphans([claimed])
-
-    expect(existsSync(stranded)).toBe(false)
+    expect(existsSync(stranded)).toBe(true)
     expect(existsSync(claimed)).toBe(true)
+    expect(existsSync(empty)).toBe(false)
     expect(root.length).toBeGreaterThan(0)
   })
-
   it('keeps a live checkout under the worktree root that no lease claims', async () => {
     const { leasePath, worktreeRoot } = await roots()
     // Claude's own `git worktree add`, next to the session's worktree.
@@ -654,29 +641,24 @@ describe('repository setup service', () => {
 
   // Spawning in a directory that is gone throws ENOENT, which used to leave
   // the lease behind forever; every command has to run from the repository.
-  it('drops a lease and prunes Git metadata when the worktree directory is gone', async () => {
+  it('prunes a missing worktree after verifying that its branch has been pushed', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
-    const fake = runtime([
-      { stdout: `${root}\n` },
-      { stdout: '# branch.head main\n' },
-      { stdout: 'main\n' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-      { stdout: '' },
-    ])
+    const replies = [
+      { stdout: `${root}\n` }, { stdout: '# branch.head main\n' },
+      { stdout: 'main\n' }, { stdout: '' }, { stdout: '' },
+      { stdout: '' }, { stdout: '' },
+    ]
+    const fake = runtime(replies)
     const service = new RepositorySetupService(fake, { leasePath, worktreeRoot, cleanupGraceMs: 0 })
     const result = await service.setup(root, 'main', true)
+    replies.push({ stdout: '0\n' }, { stdout: '' }, { stdout: '' })
     await service.cleanupOrphans([])
     expect(JSON.parse(await readFile(leasePath, 'utf8')).leases).toEqual([])
     expect(fake.spawn.mock.calls.every(call => call[0].cwd === root)).toBe(true)
-    expect(fake.spawn.mock.calls.map(call => call[0].argv)).toContainEqual(['/bin/git', 'worktree', 'prune'])
-    expect(result.path.length).toBeGreaterThan(0)
+    const commands = fake.spawn.mock.calls.map(call => call[0].argv)
+    expect(commands).toContainEqual(['/bin/git', 'rev-list', '--count', result.branch, '--not', '--remotes'])
+    expect(commands).toContainEqual(['/bin/git', 'worktree', 'prune'])
   })
-})
-
-describe('merged cleanup', () => {
   it('removes a merged plugin worktree, its branch, and its lease', async () => {
     const { root, leasePath, worktreeRoot } = await roots()
     const fake = runtime([
