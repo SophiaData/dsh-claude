@@ -42,6 +42,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      # No credentials, network, tagging, version bump or npm publication.
+      # Exercises the *actual* npm pack file list on every supported OS/Node.
+      - run: pnpm release:verify
       - name: Verify generated lib is committed
         # One canonical platform owns the byte-for-byte build comparison.
         # Windows still runs typecheck, tests and the complete build.
