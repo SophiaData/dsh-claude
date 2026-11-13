@@ -10,8 +10,6 @@ import { redactText } from './events.ts'
 import { registerPluginRoute, type PluginMethod } from './http.ts'
 
 export const PLUGIN_PACKAGE_NAME = '@sophiadata-ai/dsh-claude'
-/** Upstream npm name kept for status probes against already-published releases. */
-const UPSTREAM_PLUGIN_PACKAGE_NAME = '@norman-else/dsh-claude'
 const MAX_MANIFEST_BYTES = 256 * 1024
 const MAX_UPDATE_OUTPUT_BYTES = 32 * 1024
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/
@@ -147,28 +145,20 @@ export function compareVersions(left: string, right: string): number {
   return aPre.localeCompare(bPre, 'en', { numeric: true })
 }
 
-async function registryLatest(signal: AbortSignal): Promise<string> {
-  const candidates = [PLUGIN_PACKAGE_NAME, UPSTREAM_PLUGIN_PACKAGE_NAME]
-  let lastError: Error | undefined
-  for (const name of candidates) {
-    const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`, {
-      headers: { accept: 'application/vnd.npm.install-v1+json' },
-      signal,
-    })
-    if (!response.ok) {
-      lastError = new Error(`npm registry returned HTTP ${response.status} for ${name}`)
-      continue
-    }
-    const payload = await response.json() as { 'dist-tags'?: { latest?: unknown } }
-    const latest = payload['dist-tags']?.latest
-    if (typeof latest !== 'string') {
-      lastError = new Error(`npm registry response for ${name} has no latest version`)
-      continue
-    }
-    parseVersion(latest)
-    return latest
-  }
-  throw lastError ?? new Error('npm registry response has no latest version')
+/** Only this fork's npm scope can supply an update version. An upstream
+ * package may have higher versions but is not an upgrade of this fork.
+ * Fetch is injectable so the origin and fail-closed behavior are unit tested. */
+export async function registryLatest(signal: AbortSignal, request: typeof fetch = fetch): Promise<string> {
+  const response = await request(`https://registry.npmjs.org/${encodeURIComponent(PLUGIN_PACKAGE_NAME)}`, {
+    headers: { accept: 'application/vnd.npm.install-v1+json' },
+    signal,
+  })
+  if (!response.ok) throw new Error(`npm registry returned HTTP ${response.status} for ${PLUGIN_PACKAGE_NAME}`)
+  const payload = await response.json() as { 'dist-tags'?: { latest?: unknown } }
+  const latest = payload['dist-tags']?.latest
+  if (typeof latest !== 'string') throw new Error(`npm registry response for ${PLUGIN_PACKAGE_NAME} has no latest version`)
+  parseVersion(latest)
+  return latest
 }
 
 async function resolvePackageContextDir(configured?: string): Promise<{ packageDir: string; manifest: PackageManifest }> {
@@ -199,8 +189,22 @@ export async function checkPluginUpdate(deps: UpdateDependencies = {}, signal: A
     const { version, installation } = await packageContext(deps)
     if (installation === undefined) return { currentVersion: version, source: 'unknown', state: 'unavailable', canUpdate: false, restartRequired: false, message: 'Active DSH profile could not be identified uniquely' }
     if (installation.source === 'link') return { currentVersion: version, source: 'link', state: 'linked', canUpdate: false, restartRequired: false, message: 'Local development link; updates come from the linked checkout' }
-    if (installation.source !== 'registry') return { currentVersion: version, source: installation.source, state: 'unsupported', canUpdate: false, restartRequired: false, message: 'This installation source cannot be updated from the npm registry' }
-    const latest = await (deps.fetchLatest ?? registryLatest)(signal)
+    if (installation.source !== 'registry') return {
+      currentVersion: version,
+      source: installation.source,
+      state: 'unsupported',
+      canUpdate: false,
+      restartRequired: false,
+      message: 'Git URLs, release tarballs and other non-npm sources cannot be upgraded via npm. Reinstall from the same trusted source through the DSH plugin manager, then restart Desktop.',
+    }
+    let latest: string
+    try {
+      latest = await (deps.fetchLatest ?? registryLatest)(signal)
+    } catch (error) {
+      // A registry error must not conceal the known installed version/source,
+      // and must never trigger an update from a different package scope.
+      return { currentVersion: version, source: 'registry', state: 'error', canUpdate: false, restartRequired: false, message: safeMessage(error) }
+    }
     const comparison = compareVersions(version, latest)
     return {
       currentVersion: version,
