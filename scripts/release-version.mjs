@@ -6,6 +6,17 @@ import { readFileSync, writeFileSync } from 'node:fs'
 /** Where a package nobody has published yet starts. */
 export const FIRST_VERSION = '0.1.0'
 
+/** Publishing has irreversible remote effects. A release check may inspect a
+ * reviewed branch, but only a merged master commit may be published. */
+export function assertReleaseBranch(branch, dryRun) {
+  if (typeof branch !== 'string' || branch.length === 0) {
+    throw new Error('Releases require a checked-out branch')
+  }
+  if (!dryRun && branch !== 'master') {
+    throw new Error('Publishing is allowed from master only; merge and review the change first')
+  }
+}
+
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/u
 const BUMP_LEVELS = new Set(['major', 'minor', 'patch'])
 
