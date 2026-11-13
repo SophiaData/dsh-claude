@@ -10,6 +10,11 @@ as `@sophiadata-ai/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
 
 ## [Unreleased]
 
+### Fixed
+
+- `pnpm release` creates the GitHub release notes through `--notes-file`, so a
+  multi-line commit list no longer breaks `gh release create` on Windows.
+
 ## [0.2.4] - 2026-11-13
 
 ### Fixed

@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { releaseCommitNotes, releaseCreateArguments } from './github-release.mjs'
 import { assertReleaseBranch, parseReleaseArguments, planRelease, writeVersion } from './release-version.mjs'
 
 const { dryRun, requested } = parseReleaseArguments(process.argv.slice(2))
@@ -230,19 +233,26 @@ if (!releaseExists) {
   // GitHub's generated notes only enumerate merged pull requests, so direct
   // commits would otherwise leave the release body empty. Prepend the full
   // commit list; the generated PR list and compare link are appended after it.
+  // Pass that body through --notes-file: inline --notes with embedded newlines
+  // fails under Windows argv quoting.
   const previousTag = run('git', ['describe', '--tags', '--abbrev=0', '--match', 'v*', 'HEAD'], {
     capture: true,
     allowFailure: true,
   })
   const range = previousTag.status === 0 ? [`${previousTag.stdout.trim()}..HEAD`] : []
   const subjects = capture('git', ['log', '--format=- %s (%h)', ...range])
-  run('gh', [
-    'release', 'create', tag,
-    '--target', head,
-    '--title', tag,
-    '--generate-notes',
-    ...(subjects.length === 0 ? [] : ['--notes', `## Commits\n\n${subjects}\n`]),
-  ])
+  let notesDir
+  try {
+    let notesPath
+    if (subjects.length > 0) {
+      notesDir = mkdtempSync(join(tmpdir(), 'dsh-claude-release-notes-'))
+      notesPath = join(notesDir, 'notes.md')
+      writeFileSync(notesPath, releaseCommitNotes(subjects))
+    }
+    run('gh', releaseCreateArguments({ tag, head, notesPath }))
+  } finally {
+    if (notesDir !== undefined) rmSync(notesDir, { recursive: true, force: true })
+  }
 }
 
 console.log(`Released ${packageName}@${version} and ${tag}.`)
