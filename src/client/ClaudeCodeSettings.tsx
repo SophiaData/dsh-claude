@@ -122,8 +122,15 @@ export function GlobalSettingText({ setting, disabled, onChange }: {
   onChange: (value: string) => void
 }) {
   const [draft, setDraft] = useState(setting.value)
+  // Escape restores the committed value and blurs; the blur must not save the
+  // pre-restore draft that React has not flushed yet.
+  const skipSaveOnBlur = useRef(false)
   useEffect(() => { setDraft(setting.value) }, [setting.value])
   const save = (): void => {
+    if (skipSaveOnBlur.current) {
+      skipSaveOnBlur.current = false
+      return
+    }
     if (draft !== setting.value) onChange(draft)
   }
   return (
@@ -140,7 +147,10 @@ export function GlobalSettingText({ setting, disabled, onChange }: {
           event.preventDefault()
           event.currentTarget.blur()
         } else if (event.key === 'Escape') {
+          event.preventDefault()
           setDraft(setting.value)
+          skipSaveOnBlur.current = true
+          event.currentTarget.blur()
         }
       }}
     />

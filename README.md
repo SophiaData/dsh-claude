@@ -31,7 +31,7 @@ Add the published package to the profile used by your running DSH instance. The 
 dsh plugin --profile desktop add @sophiadata-ai/dsh-claude
 ```
 
-npm's `latest` tag is `0.2.2`; `0.2.3` is published on the GitHub release below. Use the release tarball to pin the current build.
+npm's `latest` tag and the GitHub release below both carry `0.2.4`. Use the release tarball to pin that build.
 
 Wait for the profile rebuild to finish, then quit DSH Desktop completely and reopen it. Create a new conversation and select **Claude** from the Agent Preset picker.
 
@@ -48,14 +48,14 @@ dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude
 Each release also carries the same build as a prebuilt tarball. Download that asset and add it to the profile:
 
 ```sh
-gh release download v0.2.3 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.3.tgz
+gh release download v0.2.4 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.4.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.3/sophiadata-ai-dsh-claude-0.2.3.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.4/sophiadata-ai-dsh-claude-0.2.4.tgz
 ```
 
 Use the `.tgz` in the release's **Assets** as a pin to one published build. A Git URL resolves the repository's `master` head **when installed**; an existing profile does not update automatically. The Settings updater only upgrades packages installed from this fork's npm scope. For Git URL, release asset and linked-checkout update instructions, see [distribution and release preflight](docs/release-preflight.md).

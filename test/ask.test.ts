@@ -1,11 +1,14 @@
 import { Readable } from 'node:stream'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { AskService, askArguments, askPrompt, effortFor, eventsOfStreamLine, toolSummary } from '../src/ask.ts'
 import { registerAskRoute } from '../src/ask-routes.ts'
 import { CLAUDE_ASK_PATH } from '../src/constants.ts'
+import { recordClaudeModels, resetClaudeModels } from '../src/model-catalog.ts'
+
+afterEach(() => { resetClaudeModels() })
 
 function streamingHandle(lines: readonly string[], exitCode = 0, stderr = ''): SubprocessHandle {
   return {
@@ -40,6 +43,7 @@ describe('ask prompt and CLI arguments', () => {
     expect(askArguments({ model: 'claude-fable-5', thinkingMode: 'ultracode' })).toEqual(expect.arrayContaining(['--model', 'claude-fable-5', '--effort', 'max']))
     // A session that persisted another provider's model must not hand it to
     // this one-shot CLI: it answers on the CLI's own default instead.
+    recordClaudeModels([{ value: 'claude-fable-5-1', displayName: 'Fable', description: '' }])
     expect(askArguments({ model: 'dsh-fe/deepseek-v4-flash:high[1m]' })).not.toContain('--model')
     expect(askArguments({ model: 'magpie/auto-gpt-6' })).not.toContain('--model')
     expect(effortFor('high')).toBe('high')

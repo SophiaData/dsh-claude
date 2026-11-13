@@ -10,6 +10,16 @@ as `@sophiadata-ai/dsh-claude` and built for the DSH `0.2.1-rc.5` package line.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-13
+
+### Fixed
+
+- Escape in a Claude settings text field restores the committed value and no
+  longer saves the cancelled draft on the blur that follows.
+- A slash-bearing model id is not folded to `default` while the boot lineup
+  probe is still in flight, so a gateway model the CLI is about to list is not
+  replaced on cold start. After the probe settles, unlisted slash ids fold again.
+
 ## [0.2.3] - 2026-11-04
 
 ### Fixed

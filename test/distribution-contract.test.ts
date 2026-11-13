@@ -3,7 +3,7 @@ import { REQUIRED_PACKED_FILES, verifyDistribution } from '../scripts/distributi
 
 const manifest = {
   name: '@sophiadata-ai/dsh-claude',
-  version: '0.2.3',
+  version: '0.2.4',
   main: 'lib/index.mjs',
   types: 'lib/index.d.mts',
   bin: { 'dsh-claude': 'lib/bin.mjs' },
@@ -30,7 +30,7 @@ describe('offline distribution contract', () => {
   it('accepts a tarball with the declared exports, DSH patch and legacy preset assets', () => {
     expect(verifyDistribution(manifest, packed)).toMatchObject({
       name: '@sophiadata-ai/dsh-claude',
-      version: '0.2.3',
+      version: '0.2.4',
       count: packed.length,
     })
   })

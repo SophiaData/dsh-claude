@@ -1,6 +1,6 @@
 # Installation and removal runbook
 
-Current guidance: 2026-11-10, plugin 0.2.3, development graph DSH 0.2.1-rc.5.
+Current guidance: 2026-11-13, plugin 0.2.4, development graph DSH 0.2.1-rc.5.
 
 ## 1. Identify the running installation
 
@@ -18,7 +18,7 @@ If `dsh` is not on PATH, use that installation's CLI entry point instead.
 dsh plugin --profile desktop add @sophiadata-ai/dsh-claude
 ```
 
-npm's `latest` tag is `0.2.2`; `0.2.3` is published on the GitHub release below. Use the release tarball to pin the current build.
+npm's `latest` tag and the GitHub release below both carry `0.2.4`. Use the release tarball to pin that build.
 
 Wait for the profile operation to finish, then quit Desktop completely and
 reopen it. Select **Claude** in a new session. The package's bundle patch
@@ -39,14 +39,14 @@ dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude
 Each release also carries the same build as a prebuilt tarball:
 
 ```sh
-gh release download v0.2.3 --repo SophiaData/dsh-claude --pattern '*.tgz'
-dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.3.tgz
+gh release download v0.2.4 --repo SophiaData/dsh-claude --pattern '*.tgz'
+dsh plugin --profile desktop add ./sophiadata-ai-dsh-claude-0.2.4.tgz
 ```
 
 The asset URL works the same way:
 
 ```sh
-dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.3/sophiadata-ai-dsh-claude-0.2.3.tgz
+dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.4/sophiadata-ai-dsh-claude-0.2.4.tgz
 ```
 
 Use the `.tgz` in the release's **Assets** to pin one published build. A Git

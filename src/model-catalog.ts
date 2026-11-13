@@ -311,6 +311,11 @@ export function claudeModelValue(id: string): string {
  */
 export function isForeignClaudeModelId(id: string): boolean {
   if (claudeModelRow(id) !== undefined) return false
+  // While the boot probe is still in flight, a slash-bearing id may be a
+  // gateway model the CLI has not listed yet. Folding it to the default here
+  // would replace the user's choice on cold start; wait for that probe.
+  // Once it settles — success or failure — unlisted slash ids are foreign again.
+  if (inflight !== undefined) return false
   return id.includes('/')
 }
 

@@ -681,6 +681,7 @@ describe('Claude supervisor', () => {
     // Handing that to the CLI fails the process with `unrecognized_model` and
     // the turn closes as an unknown outcome. The dispatch falls back to the
     // plugin default instead; a bare unknown id still passes through.
+    recordClaudeModels([{ value: 'claude-fable-5-1', displayName: 'Fable', description: '' }])
     const transport = factory()
     const owner = fakeAgent()
     const runtime = supervisor(transport.create)
