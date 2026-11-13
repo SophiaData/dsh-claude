@@ -279,6 +279,58 @@ describe('auto-mode escalation', () => {
   const base = { session_id: 's', transcript_path: 't', cwd: '/w' }
   const call = { tool_name: 'Bash', tool_input: { command: 'gh pr merge 1' }, tool_use_id: 'tool-1' }
 
+  it('escalates only the exact denied MCP tool call and consumes the retry once', async () => {
+    const hooks = createAutoModeEscalation()
+    const denied = hooks.PermissionDenied![0]!.hooks[0]!
+    const before = hooks.PreToolUse![0]!.hooks[0]!
+    const mcp = {
+      tool_name: 'mcp__github__list_issues',
+      tool_input: { owner: 'SophiaData', repo: 'dsh-claude' },
+      tool_use_id: 'mcp-denied-1',
+    }
+
+    await expect(denied({
+      ...base, ...mcp, hook_event_name: 'PermissionDenied', reason: 'Auto mode blocked MCP access',
+    }, 'mcp-denied-1', { signal })).resolves.toEqual({
+      hookSpecificOutput: { hookEventName: 'PermissionDenied', retry: true },
+    })
+    expect(await before({
+      ...base, ...mcp, tool_name: 'mcp__github__delete_issue',
+      hook_event_name: 'PreToolUse',
+    }, 'other', { signal })).toEqual({})
+    expect(await before({
+      ...base, ...mcp, tool_input: { owner: 'other', repo: 'dsh-claude' },
+      hook_event_name: 'PreToolUse',
+    }, 'other-input', { signal })).toEqual({})
+
+    const retry = { ...base, ...mcp, hook_event_name: 'PreToolUse' as const }
+    await expect(before(retry, 'mcp-retry-1', { signal })).resolves.toEqual({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'ask',
+        permissionDecisionReason: 'Auto mode blocked this action (Auto mode blocked MCP access). Approve to run it anyway.',
+      },
+    })
+    // The hook only requests the DSH dialog; it cannot approve an MCP tool.
+    expect(await before(retry, 'mcp-retry-2', { signal })).toEqual({})
+  })
+
+  it('does not share rejected-tool escalation state across Claude processes', async () => {
+    const one = createAutoModeEscalation()
+    const two = createAutoModeEscalation()
+    const blocked = {
+      ...base, ...call, hook_event_name: 'PermissionDenied' as const,
+      reason: 'Auto classifier denied this operation',
+    }
+    await one.PermissionDenied![0]!.hooks[0]!(blocked, 'one', { signal })
+    // A second Query gets a new pair of hooks; it must not inherit earlier
+    // denials and prompt for a tool the user never asked it to execute.
+    const other = await two.PreToolUse![0]!.hooks[0]!({
+      ...base, ...call, hook_event_name: 'PreToolUse',
+    }, 'two', { signal })
+    expect(other).toEqual({})
+  })
+
   it('lets Claude retry a blocked call and routes that retry to the DSH approval', async () => {
     const hooks = createAutoModeEscalation()
     const denied = hooks.PermissionDenied![0]!.hooks[0]!

@@ -37,6 +37,34 @@ describe('Claude SDK message normalization', () => {
     ])
   })
 
+  it('preserves namespaced native MCP tool names and correlates the SDK tool result', () => {
+    const toolName = 'mcp__github__list_issues'
+    expect(normalizeSdkMessage(sdk({
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [{
+          type: 'tool_use', id: 'mcp-use-1', name: toolName,
+          input: { owner: 'SophiaData', repo: 'dsh-claude' },
+        }],
+      },
+    }))).toEqual([{
+      kind: 'tool-call', toolUseId: 'mcp-use-1', toolName,
+      input: { owner: 'SophiaData', repo: 'dsh-claude' },
+    }])
+    expect(normalizeSdkMessage(sdk({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'mcp-use-1', content: 'No issues', is_error: false }],
+      },
+      tool_use_result: { content: 'No issues' },
+    }))).toEqual([{
+      kind: 'tool-result', toolUseId: 'mcp-use-1', content: 'No issues',
+      output: { content: 'No issues' }, isError: false,
+    }])
+  })
+
   it('normalizes structured tool results', () => {
     expect(normalizeSdkMessage(sdk({
       type: 'user',
