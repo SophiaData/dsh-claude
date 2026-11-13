@@ -58,7 +58,7 @@ The asset URL works the same way:
 dsh plugin --profile desktop add https://github.com/SophiaData/dsh-claude/releases/download/v0.2.3/sophiadata-ai-dsh-claude-0.2.3.tgz
 ```
 
-Use the `.tgz` in the release's **Assets** as a pin to one published build. A Git URL always follows the repository's current `main`-line head.
+Use the `.tgz` in the release's **Assets** as a pin to one published build. A Git URL resolves the repository's `master` head **when installed**; an existing profile does not update automatically. The Settings updater only upgrades packages installed from this fork's npm scope. For Git URL, release asset and linked-checkout update instructions, see [distribution and release preflight](docs/release-preflight.md).
 
 ### Install from source
 

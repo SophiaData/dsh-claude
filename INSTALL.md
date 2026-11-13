@@ -53,6 +53,16 @@ Use the `.tgz` in the release's **Assets** to pin one published build. A Git
 URL follows the repository head. Both carry the built `lib/`, so neither runs a
 build step.
 
+### Updating an existing installation
+
+Keep the source you deliberately installed. The in-plugin update button is for
+`@sophiadata-ai/dsh-claude` **npm registry** installations only. It does not
+switch a GitHub URL, release tarball or developer link to npm, and never
+substitutes the upstream `@norman-else` package. To update a GitHub install,
+review the new commit or release asset, install it again through DSH's plugin
+manager, then fully restart Desktop. Read
+[distribution and release preflight](docs/release-preflight.md) before upgrades.
+
 ## 5. Install from a source checkout
 
 Requires Node.js 20 or later and pnpm. From the checkout:

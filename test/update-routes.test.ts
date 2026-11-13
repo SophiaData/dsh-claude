@@ -13,6 +13,7 @@ import {
   discoverInstallation,
   PLUGIN_PACKAGE_NAME,
   registerClaudeUpdateRoutes,
+  registryLatest,
   updatePlugin,
 } from '../src/update-routes.ts'
 import { isPluginUpdateStatus } from '../src/client/ClaudeCodeSettings.tsx'
@@ -117,6 +118,54 @@ describe('plugin update discovery', () => {
     const status = await checkPluginUpdate({ dshHome: home, packageDir, fetchLatest })
     expect(status).toMatchObject({ currentVersion: '0.1.7', source: 'link', state: 'linked', canUpdate: false })
     expect(fetchLatest).not.toHaveBeenCalled()
+  })
+
+  it('queries only the SophiaData scoped package, never the unrelated upstream fallback', async () => {
+    const paths: string[] = []
+    const request = vi.fn(async (url: string) => {
+      paths.push(url)
+      return new Response(JSON.stringify({ 'dist-tags': { latest: '1.4.0' } }), { status: 200 })
+    }) as unknown as typeof fetch
+    const version = await registryLatest(new AbortController().signal, request)
+    expect(version).toBe('1.4.0')
+    expect(paths).toEqual(['https://registry.npmjs.org/%40sophiadata-ai%2Fdsh-claude'])
+    expect(paths.join(' ')).not.toContain('norman-else')
+  })
+
+  it('fails closed when this fork is missing rather than using upstream npm metadata', async () => {
+    const paths: string[] = []
+    const request = vi.fn(async (url: string) => {
+      paths.push(url)
+      return new Response('', { status: 404 })
+    }) as unknown as typeof fetch
+    await expect(registryLatest(new AbortController().signal, request)).rejects.toThrow('HTTP 404')
+    expect(paths).toEqual(['https://registry.npmjs.org/%40sophiadata-ai%2Fdsh-claude'])
+  })
+
+  it('keeps the known installed version when the registry is unreachable', async () => {
+    const { home, packageDir } = await fixture('1.0.0')
+    await profile(home, 'desktop', '1.0.0', packageDir)
+    const status = await checkPluginUpdate({
+      dshHome: home, packageDir,
+      fetchLatest: async () => { throw new Error('registry unavailable') },
+    })
+    expect(status).toMatchObject({
+      currentVersion: '1.0.0', source: 'registry', state: 'error', canUpdate: false,
+      message: 'registry unavailable',
+    })
+  })
+
+  it('never turns an install from a GitHub URL into an npm upgrade', async () => {
+    const { home, packageDir } = await fixture('1.0.0')
+    await profile(home, 'desktop', 'https://github.com/SophiaData/dsh-claude', packageDir)
+    const fetchLatest = vi.fn(async () => '99.99.99')
+    const status = await checkPluginUpdate({ dshHome: home, packageDir, fetchLatest })
+    expect(status).toMatchObject({
+      currentVersion: '1.0.0', source: 'unsupported', state: 'unsupported', canUpdate: false,
+    })
+    expect(status.message).toContain('Reinstall from the same trusted source')
+    expect(fetchLatest).not.toHaveBeenCalled()
+    await expect(updatePlugin({ dshHome: home, packageDir, fetchLatest })).rejects.toThrow('unavailable')
   })
 
   it('reports an available npm update for one matching profile', async () => {

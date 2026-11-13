@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   FIRST_VERSION,
+  assertReleaseBranch,
   bumpVersion,
   compareVersions,
   nextReleaseVersion,
@@ -11,6 +12,19 @@ import {
   planRelease,
   writeVersion,
 } from '../scripts/release-version.mjs'
+
+describe('release publish boundary', () => {
+  it('requires a reviewed master checkout for a real release', () => {
+    expect(() => assertReleaseBranch('master', false)).not.toThrow()
+    expect(() => assertReleaseBranch('feature/untested', false)).toThrow(/master only/u)
+    expect(() => assertReleaseBranch('', false)).toThrow(/checked-out branch/u)
+  })
+
+  it('lets a read-only release check inspect a development branch', () => {
+    expect(() => assertReleaseBranch('feature/check-only', true)).not.toThrow()
+    expect(() => assertReleaseBranch('', true)).toThrow(/checked-out branch/u)
+  })
+})
 
 describe('parseReleaseArguments', () => {
   it('reads the flags the release script already had', () => {

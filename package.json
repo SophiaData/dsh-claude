@@ -15,7 +15,8 @@
     "check": "pnpm run typecheck && pnpm run test && pnpm run build",
     "prepublishOnly": "pnpm run build",
     "release": "node scripts/publish.mjs",
-    "release:check": "node scripts/publish.mjs --dry-run"
+    "release:check": "node scripts/publish.mjs --dry-run",
+    "release:verify": "node scripts/verify-distribution.mjs"
   },
   "exports": {
     ".": {

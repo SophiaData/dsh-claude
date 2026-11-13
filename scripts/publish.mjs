@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { parseReleaseArguments, planRelease, writeVersion } from './release-version.mjs'
+import { assertReleaseBranch, parseReleaseArguments, planRelease, writeVersion } from './release-version.mjs'
 
 const { dryRun, requested } = parseReleaseArguments(process.argv.slice(2))
 
@@ -123,7 +123,7 @@ if (typeof packageName !== 'string' || typeof manifestVersion !== 'string') {
 
 let head = capture('git', ['rev-parse', 'HEAD'])
 const branch = capture('git', ['branch', '--show-current'])
-if (branch.length === 0) throw new Error('Releases require a checked-out branch')
+assertReleaseBranch(branch, dryRun)
 if (capture('git', ['status', '--porcelain']).length > 0) {
   throw new Error('Working tree must be clean before publishing')
 }
@@ -176,7 +176,9 @@ if (action === 'resume') {
 }
 
 run('pnpm', ['check'])
-run('npm', ['pack', '--dry-run'])
+// Before an authenticated publish, inspect what npm would actually ship.
+// This is also available standalone as pnpm release:verify for offline CI.
+run('pnpm', ['release:verify'])
 
 const alreadyPublished = action === 'resume'
 if (!alreadyPublished) {
