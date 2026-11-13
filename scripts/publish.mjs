@@ -123,7 +123,7 @@ if (typeof packageName !== 'string' || typeof manifestVersion !== 'string') {
 
 let head = capture('git', ['rev-parse', 'HEAD'])
 const branch = capture('git', ['branch', '--show-current'])
-if (branch.length === 0) throw new Error('Releases require a checked-out branch')
+assertReleaseBranch(branch, dryRun)
 if (capture('git', ['status', '--porcelain']).length > 0) {
   throw new Error('Working tree must be clean before publishing')
 }
