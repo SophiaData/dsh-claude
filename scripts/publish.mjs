@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { parseReleaseArguments, planRelease, writeVersion } from './release-version.mjs'
+import { assertReleaseBranch, parseReleaseArguments, planRelease, writeVersion } from './release-version.mjs'
 
 const { dryRun, requested } = parseReleaseArguments(process.argv.slice(2))
 
