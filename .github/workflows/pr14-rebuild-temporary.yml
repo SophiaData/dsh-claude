@@ -1,0 +1,39 @@
+# Trusted development-branch helper for PR-14. Remove before merging.
+name: PR-14 synchronize lib (temporary)
+
+on:
+  push:
+    branches: [chore/release-preflight-and-update-source-safety]
+
+permissions:
+  contents: write
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm release:verify
+      - name: Commit generated lib to the development branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- lib/
+          if git diff --cached --quiet; then
+            echo "Compiled lib already matches."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(build): regenerate lib for release source safety"
+          git push origin HEAD:chore/release-preflight-and-update-source-safety
