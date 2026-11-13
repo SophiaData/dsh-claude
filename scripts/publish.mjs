@@ -176,7 +176,9 @@ if (action === 'resume') {
 }
 
 run('pnpm', ['check'])
-run('npm', ['pack', '--dry-run'])
+// Before an authenticated publish, inspect what npm would actually ship.
+// This is also available standalone as pnpm release:verify for offline CI.
+run('pnpm', ['release:verify'])
 
 const alreadyPublished = action === 'resume'
 if (!alreadyPublished) {
