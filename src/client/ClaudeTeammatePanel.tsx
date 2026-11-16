@@ -6,7 +6,8 @@ import type { ClaudeCodeSettingsKey } from './locales.ts'
 import type { ClaudeClientProjection } from './projection.ts'
 import * as styles from './styles.ts'
 import { teammateTranscript } from './conversation-sidecar.ts'
-import { ClaudeTranscriptFlow } from './ClaudeActivityNode.tsx'
+import { ClaudeTranscriptFlow, formatTurnDuration } from './ClaudeActivityNode.tsx'
+import { formatTokenCount } from './token-format.ts'
 import { ClaudeMarkdown, useClaudeMarkdownLabels } from './markdown-labels.tsx'
 import { deriveTeam, memberStatusKey } from './team.ts'
 
@@ -63,7 +64,9 @@ export function ClaudeTeammatePanel({ t, closeDetails, taskId, useClaudeProjecti
           <>
             <div className="dsh-claude-teammate-meta">
               <span>{t(memberStatusKey(member.status))}</span>
-              {member.usage?.toolUses === undefined ? null : <span>{t('teammateToolUses', { count: member.usage.toolUses })}</span>}
+              {member.usage?.durationMs === undefined ? null : <span>{t('teammateDuration', { duration: formatTurnDuration(member.usage.durationMs) })}</span>}
+              {member.usage?.toolUses === undefined ? null : <span>{member.usage.toolUses === 1 ? t('teammateToolUse') : t('teammateToolUses', { count: member.usage.toolUses })}</span>}
+              {member.usage?.totalTokens === undefined ? null : <span>{t('tokens', { count: formatTokenCount(member.usage.totalTokens) })}</span>}
               {member.lastToolName === undefined ? null : <span>{member.lastToolName}</span>}
             </div>
             <div className="dsh-claude-teammate-brief">
@@ -73,9 +76,16 @@ export function ClaudeTeammatePanel({ t, closeDetails, taskId, useClaudeProjecti
             {items.length > 0
               ? <ClaudeTranscriptFlow items={items} t={t} />
               : member.status === 'running' ? <div className="dsh-claude-teammate-empty">{t('teammateWorking')}</div> : null}
-            {member.summary === undefined ? null : (
+            {/* The report block is the settlement. A running member's summary
+                is a progress line, not a result; its live work is the flow
+                above. */}
+            {member.status === 'running' || member.summary === undefined ? null : (
               <div className="dsh-claude-teammate-report">
-                <span className="dsh-claude-teammate-report-label">{t('teammateResult')}</span>
+                <span className="dsh-claude-teammate-report-label">
+                  {member.status === 'failed' || member.status === 'killed' || member.status === 'stopped'
+                    ? t('teammateFailure')
+                    : t('teammateResult')}
+                </span>
                 <div className="dsh-claude-transcript-text"><ClaudeMarkdown text={member.summary} labels={markdownLabels} /></div>
               </div>
             )}

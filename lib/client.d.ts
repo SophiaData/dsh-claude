@@ -240,6 +240,12 @@ declare const en: {
   readonly permissionModeLocked: "The permission mode cannot change while a turn is running";
   readonly permissionModeFailed: "Could not switch the permission mode: {message}";
   readonly permissionModeHostKept: "DSH kept its own access preset; Claude still runs the chosen mode";
+  readonly modelSelect: "Select model";
+  readonly modelSelectAria: "Model: {name}";
+  readonly modelSelectHint: "Only models the current preset can run are listed";
+  readonly modelSelectLocked: "The model cannot change while a turn runs";
+  readonly modelSelectUnavailable: "The model list is unavailable";
+  readonly modelSelectFailed: "Could not switch the model: {message}";
   readonly permissionBypassTitle: "Skip every permission check?";
   readonly permissionBypassDescription: "Claude Code will run file edits and commands without asking for approval.";
   readonly permissionBypassAcknowledge: "I understand the risk";
@@ -470,6 +476,9 @@ declare const en: {
   readonly teammateGone: "This teammate is no longer on the task board";
   readonly teammateBrief: "Brief";
   readonly teammateToolUses: "{count} tool calls";
+  readonly teammateToolUse: "1 tool call";
+  readonly teammateDuration: "Ran {duration}";
+  readonly teammateFailure: "Failure";
   readonly teammateResult: "Report";
   readonly teammateWorking: "Working, no output yet";
 };

@@ -5,7 +5,8 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ClaudeTaskInfo, ClaudeTaskStatus } from '../events.ts'
 import type { ClaudeClientProjection } from './projection.ts'
 import type { ClaudeCodeSettingsKey } from './locales.ts'
-import { LEAD_NAME, deriveTeam, memberStatusKey, taskStatusKey, type ClaudeTeamTaskStatus } from './team.ts'
+import { LEAD_NAME, deriveTeam, memberStatusKey, taskStatusKey, type ClaudeTeamMember, type ClaudeTeamTaskStatus } from './team.ts'
+import { formatTurnDuration } from './ClaudeActivityNode.tsx'
 
 export interface ClaudeTeamHeaderActionInjected {
   t: (key: ClaudeCodeSettingsKey, params?: Record<string, unknown>) => string
@@ -52,6 +53,10 @@ const TEAM_CSS = [
   '.dsh-claude-team-member-text{flex-direction:column;min-width:0;display:flex}',
   '.dsh-claude-team-member-name{align-items:center;gap:5px;min-width:0;display:inline-flex}',
   '.dsh-claude-team-member-name-text,.dsh-claude-team-member-text small{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}',
+  // The activity line is the member's latest word, so it wraps to two lines
+  // instead of being clipped to a fragment mid-sentence.
+  '.dsh-claude-team-member-activity{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal!important;overflow-wrap:anywhere}',
+  '.dsh-claude-team-member[data-failed] .dsh-claude-team-member-activity{color:var(--dsw-alias-state-error-primary, var(--dsw-alias-label-secondary))}',
   '.dsh-claude-team-member-text small,.dsh-claude-team-meta{color:var(--dsw-alias-label-tertiary);font-size:11px}',
   '.dsh-claude-team-tag{flex:0 999 auto;min-width:0;padding:0 4px;border-radius:4px;font-size:10px;line-height:15px;display:inline-block;overflow:hidden;text-overflow:ellipsis;',
     'background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 16%, transparent);color:var(--dsw-alias-state-business-primary)}',
@@ -83,6 +88,25 @@ function memberDot(status: ClaudeTaskStatus): StateDotState {
     case 'stopped':
     case 'killed': return 'warning'
   }
+}
+
+type Translate = (key: ClaudeCodeSettingsKey, params?: Record<string, unknown>) => string
+
+/** The one line under a member's name: what it is doing now, or how it ended.
+ *  A running member shows the tool it last reached for; a settled one shows
+ *  what it reported back, which is the only place the task board keeps a
+ *  failure reason. */
+export function memberActivityLine(member: ClaudeTeamMember, t: Translate): string | undefined {
+  if (member.status === 'running') return member.lastToolName === undefined ? undefined : `${t('teamStatusRunning')} · ${member.lastToolName}`
+  return member.summary === undefined ? undefined : member.summary.replaceAll('\n', ' ')
+}
+
+/** How long a member has run and how much work that took, when the board says. */
+export function memberDetail(member: ClaudeTeamMember, t: Translate): string | undefined {
+  const parts: string[] = []
+  if (member.usage?.durationMs !== undefined) parts.push(formatTurnDuration(member.usage.durationMs))
+  if (member.usage?.toolUses !== undefined) parts.push(member.usage.toolUses === 1 ? t('teammateToolUse') : t('teammateToolUses', { count: member.usage.toolUses }))
+  return parts.length === 0 ? undefined : parts.join(' · ')
 }
 
 function taskDot(status: ClaudeTeamTaskStatus): StateDotState {
@@ -158,25 +182,31 @@ export function ClaudeTeamHeaderAction({ t, sessionId, openTeammate, useClaudePr
                     <small>{t(running ? 'teamStatusRunning' : 'teamLeadIdle')}</small>
                   </span>
                 </button>
-                {team.members.map(member => (
-                  <button
-                    key={member.taskId}
-                    type="button"
-                    className="dsh-claude-team-member"
-                    aria-label={t('teammateOpen', { name: member.name })}
-                    title={member.description}
-                    onClick={() => {
-                      setOpen(false)
-                      openTeammate(member.taskId)
-                    }}
-                  >
-                    <span className="dsh-claude-team-member-dot"><StateDot state={memberDot(member.status)} /></span>
-                    <span className="dsh-claude-team-member-text">
-                      <span className="dsh-claude-team-member-name"><span className="dsh-claude-team-member-name-text">{member.name}</span></span>
-                      <small>{t(memberStatusKey(member.status))}{member.lastToolName === undefined ? '' : ` · ${member.lastToolName}`}</small>
-                    </span>
-                  </button>
-                ))}
+                {team.members.map(member => {
+                  const activity = memberActivityLine(member, t)
+                  const detail = memberDetail(member, t)
+                  return (
+                    <button
+                      key={member.taskId}
+                      type="button"
+                      className="dsh-claude-team-member"
+                      data-failed={member.status === 'failed' || member.status === 'killed' || member.status === 'stopped' ? '' : undefined}
+                      aria-label={t('teammateOpen', { name: member.name })}
+                      title={member.description}
+                      onClick={() => {
+                        setOpen(false)
+                        openTeammate(member.taskId)
+                      }}
+                    >
+                      <span className="dsh-claude-team-member-dot"><StateDot state={memberDot(member.status)} /></span>
+                      <span className="dsh-claude-team-member-text">
+                        <span className="dsh-claude-team-member-name"><span className="dsh-claude-team-member-name-text">{member.name}</span></span>
+                        <small>{t(memberStatusKey(member.status))}{detail === undefined ? '' : ` · ${detail}`}</small>
+                        {activity === undefined ? null : <small className="dsh-claude-team-member-activity" title={activity}>{activity}</small>}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </section>
             <section>

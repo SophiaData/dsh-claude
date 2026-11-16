@@ -48,6 +48,16 @@ describe('Claude client slot registration', () => {
     expect(captured.registrations.some(entry => entry.name === 'conversation.chat.turnTail')).toBe(true)
   })
 
+  it('takes the model seat at a shadowing priority', () => {
+    const captured = conversationCapture()
+    apply(captured.ctx as never)
+    // The Host's own occupant sits at the default priority; a lower one wins
+    // the cell, so exactly one model selector renders per Session.
+    const model = captured.registrations.find(entry => entry.name === 'conversation.input.model') as { readonly priority?: number } | undefined
+    expect(model).toBeDefined()
+    expect(model?.priority).toBeLessThan(0)
+  })
+
   it('mounts the custom Claude definitions through the Desktop conversation service', () => {
     const definitions: unknown[] = []
     const dispose = (): void => {}

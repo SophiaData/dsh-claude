@@ -260,6 +260,7 @@ The plugin may provide a plugin-owned context refresh command, but must not shad
 - Prompt routes: Markdown snippets under `~/.claude/prompts`, naming and draft refinement. Selection questions use a separate read-only query. These are auxiliary helpers, not another main conversation loop.
 - Prompt suggestion: the spawn sets `promptSuggestions: true`; the CLI's `prompt_suggestion` (after `result`, never mid-turn) is stored as sidecar `promptSuggestion` and published as a `promptSuggestion` carrier line, and cleared when the next turn starts. The client draws the part the draft has not typed yet as ghost text through its own attribute and custom property on the Host editor's wrapper (trailing the last paragraph, or in the placeholder seat for an empty draft); Tab, or → with the caret at the end, replaces the draft with it via `setDraft`. A `/` draft is left to the command menu.
 - Rewind: transcript anchoring and optional checkout restoration while retaining append-only DSH history. Stop cleanup is serialized with the next same-session turn; do not remove resume state to handle cancellation.
+- Model catalog and selection routes: the Session's preset-scoped model list and the selection write behind the composer's model seat (see 5.6).
 
 ## 4. Permission Contract
 
@@ -372,6 +373,50 @@ each record.
 The initial global field is `outputStyle`. Read its current value from `~/.claude/settings.json`, enumerate built-in styles plus bounded names from `~/.claude/output-styles/*.md`, and update only that field while preserving all unknown settings. Selecting Default removes the override. Serialize updates, reject malformed or unlisted values, limit settings/style/request sizes, and replace the settings file atomically with user-only permissions. Never return style prompt bodies or unrelated settings. Output-style changes apply only to newly created Claude sessions.
 
 Plugin updates must install the registry's validated latest version explicitly rather than relying on the profile's existing semver range, then verify both the profile dependency and installed package manifests before reporting success. When the public Desktop actions service is available, a verified update schedules a controlled Desktop restart so both Host and Client reload the installed package; other Hosts require a manual restart. Linked, ambiguous, and unsupported sources remain non-updatable.
+
+### 5.6 Model selection, drawn from the Session's preset
+
+The plugin registers the Claude Code provider globally, and DSH loads one model
+catalog per Host generation, so the Host's own composer seat lists the whole
+Claude lineup in every Session. Presets are what decide which side a Session
+runs, and the two sides are not interchangeable: under the Claude preset a DSH
+model is passed straight through `agent/request` (the preset route only forces
+`provider=claude` when no model control exists), and outside it a Claude model
+fails the turn. The selection surface is therefore drawn from the preset rather
+than filtered out of the Host's list.
+
+- `GET /plugins/dsh-claude/models?sessionId=…` returns that Session's composed
+  preset, its current selection, and the catalog rows the preset may pick from:
+  Claude sessions get the Claude provider alone, every other preset gets the
+  rest, and a provider that cannot answer — or answers too slowly — contributes
+  nothing instead of failing the list. Before the preset composes there is no
+  side to filter to and both routes behave as the Host's own do.
+- `POST /plugins/dsh-claude/model` records `{ sessionId, provider, model }`
+  through the Agent's public model control (else the Host's session
+  controller), canonicalising a Claude id to a selector alias so a version bump
+  does not strand a persisted pick, and answers `409 preset-provider-mismatch`
+  for a provider the settled preset does not run.
+- The Client takes the `conversation.input.model` seat at a lower priority, so
+  one selector renders and it is the plugin's, in every Session. It shows the
+  current model's catalog name, lists the rows the route returned with their
+  provider, marks the current row, draws the pick immediately and puts the
+  previous one back when the write is refused. A reload starts from no catalog,
+  and each attempt carries its own coalescing key so a preset change never
+  joins the request it replaces; a failed read leaves one disabled generic
+  trigger rather than an empty seat or stale rows.
+
+### 5.7 Subagent status facts
+
+The roster card under a member's name carries that member's live state: the
+status word, its run duration and tool-call count from the task board's usage,
+and then one activity line — the tool it last reached for while running, else
+the settlement summary, which is where the task board keeps a failure reason.
+The activity line wraps to two lines instead of clipping to a fragment, and a
+failed, killed, or stopped member draws it in the error colour. The teammate tab
+adds the same duration, tool count, and token total under its title. Its
+settlement block renders only for a settled member — a running member's summary
+is a progress line, not a result — and is labelled as the failure reason rather
+than a result when the member did not complete.
 
 ## 6. Failure and Recovery
 

@@ -43,6 +43,8 @@ import { ClaudeProjectionStore, type ClaudeProjectionSource } from './projection
 import { createClaudeCommandSource } from './claude-command-source.ts'
 import { ClaudePromptSaveAction, type ClaudePromptSaveActionInjected } from './ClaudePromptSaveAction.tsx'
 import { ClaudePermissionSelect, type ClaudePermissionSelectInjected } from './ClaudePermissionSelect.tsx'
+import { ClaudeModelPicker, type ClaudeModelPickerInjected } from './ClaudeModelPicker.tsx'
+import { loadClaudeModelCatalog, selectClaudeModel } from './model-selection-api.ts'
 import { setClaudePermissionMode } from './permission-mode-api.ts'
 import { ClaudePromptRefineAction, type ClaudePromptRefineActionInjected } from './ClaudePromptRefineAction.tsx'
 import { ClaudePromptSuggestion, type ClaudePromptSuggestionInjected } from './ClaudePromptSuggestion.tsx'
@@ -370,6 +372,28 @@ ${error.stack ?? ''}`
       }
     },
   }, ClaudePermissionSelect))
+  // The model seat, shadowed at a lower priority so one selector renders and it
+  // is this one. The Host's own seat lists every registered provider in every
+  // Session, and this plugin registers Claude Code globally, so the Claude
+  // lineup would otherwise be offered to Sessions whose preset cannot run it —
+  // and a pick from the wrong side fails the next turn rather than the pick.
+  // This entry renders for every Session; the preset decides what it lists.
+  ctx.slots.inject('conversation.input.model', () => ctx.slots.register({
+    name: 'conversation.input.model',
+    priority: -10,
+    locale: namespace,
+    inject: (sessionId: SessionId): ClaudeModelPickerInjected => {
+      const scope = sessions?.scope(sessionId)
+      return {
+        t,
+        load: (key, signal) => loadClaudeModelCatalog(sessionId, signal, key),
+        select: (provider, model) => selectClaudeModel(sessionId, provider, model),
+        ...(scope === undefined || conversation === undefined
+          ? {}
+          : { notify: (level, text) => { sessionInput(conversation, scope).notify(level, text) } }),
+      }
+    },
+  }, ClaudeModelPicker))
   // Draws nothing in the row: it only needs a seat inside the composer card
   // to find the editor it ghosts the next-prompt suggestion into.
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({

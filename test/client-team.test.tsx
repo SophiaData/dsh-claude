@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ClaudeActivityEvent, ClaudeTaskInfo } from '../src/events.ts'
 import { createdTaskId, deriveTeam, EMPTY_TEAM } from '../src/client/team.ts'
 import { teammateTranscript, transcriptItemsForStep } from '../src/client/conversation-sidecar.ts'
-import { ClaudeTeamHeaderAction } from '../src/client/ClaudeTeamHeaderAction.tsx'
+import { ClaudeTeamHeaderAction, memberActivityLine, memberDetail } from '../src/client/ClaudeTeamHeaderAction.tsx'
 import { ClaudeTeammatePanel } from '../src/client/ClaudeTeammatePanel.tsx'
 import { ClaudeTranscriptToolItem } from '../src/client/ClaudeActivityNode.tsx'
 import { EMPTY_CLAUDE_PROJECTION, type ClaudeClientProjection } from '../src/client/projection.ts'
@@ -147,9 +147,12 @@ describe('ClaudeTeammatePanel', () => {
     expect(markup).toContain('>reviewer<')
     expect(markup).toContain('Running')
     expect(markup).toContain('4 tool calls')
-    // The Lead's brief as the opening turn, the report as the closing answer.
+    // The Lead's brief as the opening turn. A running member's summary is a
+    // progress line, not a settlement: the report block stays out until it
+    // settles.
     expect(markup).toContain('Review PR 12')
-    expect(markup).toContain('Parser looks fine.')
+    expect(markup).not.toContain('Parser looks fine.')
+    expect(markup).not.toContain('class="dsh-claude-teammate-report"')
     // Its own prose and tool cards in between, nothing from other members.
     expect(markup).toContain('Reading the parser now.')
     expect(markup).toContain('The parser is fine.')
@@ -167,13 +170,46 @@ describe('ClaudeTeammatePanel', () => {
   })
 })
 
-describe('ClaudeTranscriptToolItem background control', () => {
-  const tool = (overrides: Record<string, unknown>) => ({ toolUseId: 'call-1', toolName: 'Bash', description: 'Run deploy', subcalls: [], phase: 'started', ...overrides } as never)
+describe('ClaudeTranscriptToolItem background control', () => {  const tool = (overrides: Record<string, unknown>) => ({ toolUseId: 'call-1', toolName: 'Bash', description: 'Run deploy', subcalls: [], phase: 'started', ...overrides } as never)
   const onBackground = async () => 'moved'
   it('offers to move only a running Bash call, and only where the chat wired the control', () => {
     expect(renderToStaticMarkup(<ClaudeTranscriptToolItem tool={tool({})} t={t} onBackground={onBackground} />)).toContain('aria-label="Move to background"')
     expect(renderToStaticMarkup(<ClaudeTranscriptToolItem tool={tool({ phase: 'completed' })} t={t} onBackground={onBackground} />)).not.toContain('Move to background')
     expect(renderToStaticMarkup(<ClaudeTranscriptToolItem tool={tool({ toolName: 'Read' })} t={t} onBackground={onBackground} />)).not.toContain('Move to background')
     expect(renderToStaticMarkup(<ClaudeTranscriptToolItem tool={tool({})} t={t} />)).not.toContain('Move to background')
+  })
+})
+
+describe('subagent status facts', () => {
+  const member = (overrides: Record<string, unknown>): never => ({
+    taskId: 'tm-1', name: 'reviewer', role: 'teammate', status: 'running', description: 'Review the diff', ...overrides,
+  }) as never
+
+  it('says what a running member is doing, and what a settled one reported', () => {
+    expect(memberActivityLine(member({ status: 'running', lastToolName: 'Read' }), t)).toBe('Running · Read')
+    expect(memberActivityLine(member({ status: 'running' }), t)).toBeUndefined()
+    // The settlement summary is where a failure reason surfaces.
+    expect(memberActivityLine(member({ status: 'failed', summary: 'Tests broke\non the parser' }), t)).toBe('Tests broke on the parser')
+    expect(memberActivityLine(member({ status: 'completed' }), t)).toBeUndefined()
+  })
+
+  it('reports how long a member ran and how much work that took', () => {
+    expect(memberDetail(member({ usage: { durationMs: 128_000, toolUses: 4 } }), t)).toBe('2m 08s · 4 tool calls')
+    expect(memberDetail(member({ usage: { toolUses: 1 } }), t)).toBe('1 tool call')
+    expect(memberDetail(member({}), t)).toBeUndefined()
+  })
+
+  it('draws the failing member\'s word in the roster and its reason in the panel', () => {
+    const failed: ClaudeTaskInfo[] = [
+      { taskId: 'tm-9', description: 'Check the build', status: 'failed', taskType: 'local_agent', summary: 'Typecheck failed on src/index.ts' },
+    ]
+    const roster = renderToStaticMarkup(<ClaudeTeamHeaderAction t={t} sessionId="s" openTeammate={vi.fn()} useClaudeProjection={hook(true, failed, [])} />)
+    // The roster only mounts its cards inside the open panel; the trigger still
+    // counts the member, and the panel draws the reason.
+    expect(roster).toContain('<span class="dsh-claude-team-count">2</span>')
+    const panel = renderToStaticMarkup(<ClaudeTeammatePanel t={t} closeDetails={vi.fn()} taskId="tm-9" useClaudeProjection={hook(true, failed, [])} />)
+    expect(panel).toContain('Failed')
+    expect(panel).toContain('Failure')
+    expect(panel).toContain('Typecheck failed on src/index.ts')
   })
 })

@@ -41,6 +41,7 @@ import { registerClaudeClientDiagnosticsRoute } from './client-diagnostics-route
 import { registerClaudeRewindRoute } from './rewind-routes.ts'
 import { registerClaudeBackgroundTaskRoute } from './background-task-routes.ts'
 import { registerClaudePermissionModeRoute } from './permission-mode-routes.ts'
+import { registerClaudeModelRoute } from './model-selection-routes.ts'
 import { claudePermissionMode, type ClaudePermissionModeView, type ClaudePermissionSelector } from './permission-mode.ts'
 import { alignSessionWithDefault, applyHostPreset, type HostPermissionPresetService, type HostPresetAccess } from './permission-mode-host.ts'
 import { restoreWorktreeTree } from './worktree-snapshot.ts'
@@ -712,6 +713,29 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       applyHostPreset: async (sessionId, sandbox) => {
         const agent = webCtx.agents.get(sessionId as never)
         return agent !== undefined && applyHostPreset(hostPresets, agent, sandbox)
+      },
+    })
+    // The composer's model selector is drawn from this Session's preset, so a
+    // Claude Session offers the Claude lineup alone and every other Session
+    // offers the rest. The catalog itself is the Host's provider registry.
+    registerClaudeModelRoute(webCtx, {
+      hasSession: sessionId => webCtx.agents.get(sessionId as never) !== undefined,
+      presetOf: sessionId => {
+        const agent = webCtx.agents.get(sessionId as never)
+        return agent === undefined ? undefined : webCtx.agentPresets.composedPreset(agent.ctx)
+      },
+      providers: () => webCtx.llm.listProviders(),
+      models: provider => webCtx.llm.listModels(provider),
+      current: sessionId => publicModelControl(webCtx.agents.get(sessionId as never))?.current(),
+      select: async (sessionId, selection) => {
+        const control = publicModelControl(webCtx.agents.get(sessionId as never))
+        if (control !== undefined) {
+          control.select(selection)
+          return
+        }
+        const controller = webCtx.get('sessionController') as { selectModel(request: { sessionId: string } & ModelSelection): Promise<unknown> } | undefined
+        if (controller === undefined) throw new Error('the Host mounts no session controller')
+        await controller.selectModel({ sessionId, ...selection })
       },
     })
     const permissionModeForClaudeSession = async (sessionId: string): Promise<ClaudePermissionModeView | undefined> => {
